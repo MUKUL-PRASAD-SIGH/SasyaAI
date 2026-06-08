@@ -1,2 +1,262 @@
-# Ignore documentation files and directories
+# ╔══════════════════════════════════════════════════════════════════╗
+# ║              SasyaAI — Project Architecture .gitignore          ║
+# ║  Each section maps to a layer in the system architecture.       ║
+# ║  See Docs/ARCHITECTURE.md for the full design reference.        ║
+# ╚══════════════════════════════════════════════════════════════════╝
+
+# ─────────────────────────────────────────────────────────────────
+# 📄 DOCUMENTATION (tracked separately / generated)
+# ─────────────────────────────────────────────────────────────────
 Docs/
+
+# ─────────────────────────────────────────────────────────────────
+# 🐍 PYTHON / BACKEND (FastAPI + Celery + Agents)
+#    services/
+#    ├── orchestrator/       → LLM orchestrator agent
+#    ├── planning_agent/     → Crop/finance optimization
+#    ├── vision_agent/       → YOLOv8 pest/disease detection
+#    ├── geospatial_agent/   → PostGIS + GDAL spatial analysis
+#    ├── monitoring_agent/   → Kafka consumer + constraint validator
+#    └── shared/             → Common utils, schemas, configs
+# ─────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+eggs/
+*.whl
+pip-log.txt
+pip-delete-this-directory.txt
+.Python
+develop-eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+
+# Virtual environments
+venv/
+.venv/
+ENV/
+env/
+.env
+.env.local
+.env.*.local
+
+# ─────────────────────────────────────────────────────────────────
+# 🤖 AI / ML MODEL ARTIFACTS
+#    models/
+#    ├── yolov8_npss/        → Fine-tuned YOLOv8 (pest detection)
+#    ├── efficientnet_b4/    → Disease severity grading
+#    ├── lstm_yield/         → Time-series yield forecasting
+#    ├── tft_weather/        → Temporal Fusion Transformer
+#    ├── xgboost_scheme/     → Scheme eligibility scoring
+#    ├── whisper_indic/      → Multilingual ASR
+#    ├── coqui_tts/          → Text-to-speech models
+#    ├── embeddings/         → sentence-transformers + FAISS index
+#    └── llm_gguf/           → Quantized Llama 3.2 for edge
+# ─────────────────────────────────────────────────────────────────
+*.pt
+*.pth
+*.onnx
+*.tflite
+*.h5
+*.hdf5
+*.pkl
+*.joblib
+*.gguf
+*.safetensors
+*.bin
+models/
+checkpoints/
+runs/
+wandb/
+mlruns/
+*.mlmodel
+tensorboard_logs/
+
+# ─────────────────────────────────────────────────────────────────
+# 🗄️ DATA LAYER
+#    data/
+#    ├── raw/                → AgriStack exports, SHC CSVs, NPSS images
+#    │   ├── agristack/      → Farmer registry + land records (JSON)
+#    │   ├── soil_health/    → Soil Health Card database
+#    │   ├── npss_images/    → Pest/disease labeled images (~50K)
+#    │   ├── weather_imd/    → IMD NetCDF/CSV archives
+#    │   ├── enam_prices/    → Market price feed snapshots
+#    │   ├── satellite/      → Sentinel-2, ResourceSat GeoTIFFs
+#    │   └── gicen/          → Telangana shapefiles, soil moisture,
+#    │                         pincode boundaries, geological maps
+#    ├── processed/          → Feature-engineered datasets
+#    ├── embeddings/         → FAISS vector indices
+#    └── cache/              → Redis dump files, temp processing
+# ─────────────────────────────────────────────────────────────────
+data/
+*.csv
+*.tsv
+*.parquet
+*.feather
+*.arrow
+*.nc
+*.netcdf
+*.geojson
+*.shp
+*.shx
+*.dbf
+*.prj
+*.cpg
+*.geotiff
+*.tif
+*.tiff
+*.gpkg
+*.sqlite
+*.db
+!schema/*.sql
+
+# ─────────────────────────────────────────────────────────────────
+# 🌐 FRONTEND / PRESENTATION LAYER
+#    frontend/
+#    ├── web/                → React.js + Tailwind (admin dashboard)
+#    │   ├── node_modules/
+#    │   ├── .next/          → Next.js build cache (PWA fallback)
+#    │   └── build/
+#    ├── mobile/             → React Native + Expo (farmer app)
+#    │   ├── node_modules/
+#    │   ├── .expo/
+#    │   ├── android/build/
+#    │   └── ios/Pods/
+#    └── ivr/                → Twilio VXML voice interface configs
+# ─────────────────────────────────────────────────────────────────
+node_modules/
+.next/
+out/
+.nuxt/
+.expo/
+*.apk
+*.aab
+*.ipa
+ios/Pods/
+android/build/
+android/.gradle/
+.cache/
+.parcel-cache/
+coverage/
+*.lcov
+
+# ─────────────────────────────────────────────────────────────────
+# 🐳 INFRASTRUCTURE & DEVOPS
+#    infra/
+#    ├── docker/             → Dockerfiles per service
+#    ├── helm/               → Helm charts (sasyaai/)
+#    │   └── sasyaai/
+#    │       ├── values-prod.yaml
+#    │       ├── values-staging.yaml
+#    │       └── templates/
+#    ├── terraform/          → IaC for AWS/Azure (EKS, RDS, MSK)
+#    ├── k8s/                → Raw K8s manifests (if not using Helm)
+#    └── monitoring/         → Prometheus rules, Grafana dashboards
+# ─────────────────────────────────────────────────────────────────
+*.tfstate
+*.tfstate.backup
+.terraform/
+*.tfvars
+!*.tfvars.example
+.terraformrc
+terraform.rc
+*.plan
+
+# Docker
+docker-compose.override.yml
+.docker/
+
+# ─────────────────────────────────────────────────────────────────
+# 🔑 SECRETS & CREDENTIALS
+#    (NEVER commit these — sensitive farmer PII / API keys)
+# ─────────────────────────────────────────────────────────────────
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+*.jks
+secrets/
+.secrets/
+credentials/
+*.secret
+vault-config.hcl
+
+# ─────────────────────────────────────────────────────────────────
+# 🧪 TESTING & QUALITY
+#    tests/
+#    ├── unit/               → Per-service unit tests
+#    ├── integration/        → Cross-service API tests
+#    ├── e2e/                → End-to-end Cypress/Playwright
+#    └── fixtures/           → Test data (farmer mocks, images)
+# ─────────────────────────────────────────────────────────────────
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+.coverage.*
+*.cover
+*.log
+nosetests.xml
+test-results/
+junit.xml
+playwright-report/
+
+# ─────────────────────────────────────────────────────────────────
+# 📓 NOTEBOOKS & EXPERIMENTS
+#    notebooks/
+#    ├── eda/                → Exploratory data analysis
+#    ├── model_training/     → Training experiment notebooks
+#    └── prototyping/        → Agent behavior prototyping
+# ─────────────────────────────────────────────────────────────────
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+notebooks/outputs/
+
+# ─────────────────────────────────────────────────────────────────
+# 💻 IDE & EDITOR
+# ─────────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+*.sublime-project
+*.sublime-workspace
+
+# ─────────────────────────────────────────────────────────────────
+# 🖥️ OS ARTIFACTS
+# ─────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.lnk
+
+# ─────────────────────────────────────────────────────────────────
+# 📦 MISCELLANEOUS
+# ─────────────────────────────────────────────────────────────────
+*.bak
+*.tmp
+*.temp
+*.orig
+*.rej
+tmp/
+temp/
+logs/
+*.log
