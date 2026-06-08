@@ -177,67 +177,46 @@ The twin is updated via event streams (weather APIs, market feeds, field sensor 
 
 ---
 
-## 5. Team Roles (4-Member Division)
+## 5. Team Roles & Execution Readiness (5-Member Team)
 
-```
+```text
                     ┌─────────────────────────────────┐
-                    │       MEMBER 1 — TEAM LEAD       │
-                    │   Orchestrator + Architecture     │
+                    │      TEAM LEAD & AI ARCHITECT    │
+                    │   Orchestrator + Multi-Agent     │
                     └────────────────┬─────────────────┘
                                      │
-              ┌──────────────────────┼──────────────────────┐
-              │                      │                       │
-   ┌──────────▼──────────┐ ┌────────▼────────┐ ┌───────────▼──────────┐
-   │  MEMBER 2            │ │  MEMBER 3       │ │  MEMBER 4            │
-   │  AI / ML Engineer    │ │  Backend + Data │ │  Frontend + DevOps   │
-   └──────────────────────┘ └─────────────────┘ └──────────────────────┘
+         ┌───────────────────┬───────┴───────┬───────────────────┐
+         │                   │               │                   │
+┌────────▼────────┐ ┌────────▼───────┐ ┌─────▼────────┐ ┌────────▼────────┐
+│ COMPUTER VISION │ │ BACKEND & DATA │ │  FULL-STACK  │ │   AGRICULTURAL  │
+│    ENGINEER     │ │    ENGINEER    │ │ UX DEVELOPER │ │  DOMAIN EXPERT  │
+└─────────────────┘ └────────────────┘ └──────────────┘ └─────────────────┘
 ```
 
-### Member 1 — Team Lead / Orchestrator Architect
+### Team Capability Map
 
-| Ownership | Components |
-|---|---|
-| 🔴 Critical | Orchestrator Agent, LLM Integration (Gemini/GPT-4o), Agent Communication Protocol |
-| 🟡 High | System Architecture, Project Coordination, Integration Testing |
+| Role | Expertise | Hackathon Responsibility |
+|---|---|---|
+| **Team Lead & AI Architect** | ML/LLM systems, 5 yrs agri-tech | Orchestrator design, multi-agent integration. |
+| **Computer Vision Engineer** | YOLOv8, PyTorch, image datasets | Vision agent, NPSS dataset processing. |
+| **Backend & Data Engineer** | FastAPI, Kafka, PostGIS, GIS | Kafka pipelines, Digital Twin engine. |
+| **Full-Stack / UX Developer** | React Native, UI/UX | Offline-first architecture, Voice UI. |
+| **Agricultural Domain Expert** | Agricultural science, KVK | Scheme knowledge, advisory validation. |
 
-**Key Tasks**: Agent-to-agent Kafka protocol, Docker Compose setup, LLM task decomposition, agent routing engine, XAI explainer, end-to-end flow testing, demo prep.
+### Compliance & Readiness Note
 
-### Member 2 — AI / ML Engineer
+> 📋 **MoAFW Terms Compliance**:
+> - **Institution/Company NOCs**: All required No Objection Certificates have been secured.
+> - **Commitment**: The team is fully committed to the 6-month Proof of Concept (PoC) deployment and maintenance phase following the hackathon.
 
-| Ownership | Components |
-|---|---|
-| 🔴 Critical | Vision Agent, ML Models (YOLOv8, EfficientNet, LSTM, XGBoost) |
-| 🟡 High | NPSS Dataset preprocessing, RAG pipeline (FAISS + embeddings) |
-| 🟢 Medium | Whisper ASR + Coqui TTS for voice |
+### Git Branching Strategy
 
-**Key Tasks**: Fine-tune YOLOv8 on NPSS (>85% accuracy), severity grading model, yield prediction, scheme eligibility scoring, Vision Agent FastAPI service, model quantization for edge.
-
-### Member 3 — Backend + Data Engineer
-
-| Ownership | Components |
-|---|---|
-| 🔴 Critical | Planning Agent, Geospatial Agent, Database Layer (PostgreSQL + PostGIS + MongoDB) |
-| 🟡 High | AgriStack Sandbox Integration, Monitoring Agent, Data Pipelines |
-
-**Key Tasks**: PostgreSQL schema + Alembic migrations, AgriStack API testing, crop recommendation engine (OR-Tools), NDVI extraction, KrishiDSS integration, Kafka consumers, constraint validator.
-
-### Member 4 — Frontend + DevOps
-
-| Ownership | Components |
-|---|---|
-| 🔴 Critical | Web Dashboard (React.js + Tailwind), Mobile App (React Native + Expo) |
-| 🟡 High | Infrastructure (Docker, Helm, Terraform), Monitoring (Prometheus + Grafana) |
-| 🟢 Medium | IVR Interface (Twilio) |
-
-**Key Tasks**: Dashboard UI (farmer profile, crop reco, pest scan, farm map, schemes, alerts), admin analytics, mobile app, K8s Helm charts, CI/CD, security hardening, demo recording.
-
-### Git Branching
-
-```
-main ← master ← feat/orchestrator-agent (M1)
-                ← feat/vision-agent (M2)
-                ← feat/planning-agent (M3)
-                ← feat/web-dashboard (M4)
+```text
+main ← master ← feat/orchestrator (Lead)
+                ← feat/vision-agent (CV Eng)
+                ← feat/digital-twin (Data Eng)
+                ← feat/mobile-app (UX Dev)
+                ← docs/domain-rules (Domain Expert)
 ```
 
 All changes via PR with 1 reviewer. Conventional Commits: `feat:`, `fix:`, `docs:`, `chore:`.
