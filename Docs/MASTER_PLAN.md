@@ -227,11 +227,11 @@ All changes via PR with 1 reviewer. Conventional Commits: `feat:`, `fix:`, `docs
 
 | Phase | Timeline | Milestones |
 |---|---|---|
-| Phase 0: Foundation | Month 1-2 | Data pipelines, AgriStack integration, base digital twin |
-| Phase 1: Agent MVP | Month 3-4 | Planning + Vision agent live, NL interface (Hindi) |
-| Phase 2: Full Stack | Month 5-6 | All 4 agents, XAI layer, 5 language support |
-| Phase 3: Scale | Month 7-12 | 50K farmer onboarding, FPO integration, carbon module |
-| Phase 4: Ecosystem | Year 2 | IoT network, B2B API for banks/insurers/input cos |
+| Phase 0: Foundation | Div 1-2 | Data pipelines, AgriStack integration, base digital twin |
+| Phase 1: Agent MVP | Div 3-4 | Planning + Vision agent live, NL interface (Hindi) |
+| Phase 2: Full Stack | Div 5-6 | All 4 agents, XAI layer, 5 language support |
+| Phase 3: Scale | Div 7-12 | 50K farmer onboarding, FPO integration, carbon module |
+| Phase 4: Ecosystem | Div 12+ | IoT network, B2B API for banks/insurers/input cos |
 
 ---
 
