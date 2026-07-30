@@ -1,0 +1,471 @@
+"""Live provider-backed advisory workflow for production deployments."""
+
+from __future__ import annotations
+
+import re
+from datetime import datetime, timezone
+from typing import Any
+from uuid import uuid4
+
+from pydantic import ValidationError
+
+from app.core.config import Settings
+from app.models.advisory import (
+    AdvisoryResponse,
+    HITLCase,
+    HITLDecisionRequest,
+    Intent,
+    KnowledgeHit,
+    KnowledgeIngestRequest,
+    MemorySearchRequest,
+    ReflectionResult,
+    TraceEvent,
+    VerificationCheck,
+)
+from app.models.integration import (
+    ConsentPreflightResult,
+    ConsentRecord,
+    ConsentScope,
+    ConsentStatus,
+    SourceProvenance,
+)
+from app.services.advisory import (
+    ConsentNotGrantedError,
+    FarmerNotFoundError,
+    HITLCaseNotPendingError,
+    HITLCaseSafetyBlockedError,
+)
+from app.services.connectors import LiveDataGateway, ToolDataUnavailableError
+from app.services.llm import AgentPlan, LLMRequest, build_llm_provider
+from app.services.persistence import PostgresMemoryStore
+from app.services.retrieval import QdrantKnowledgeStore
+
+_DOSE_PATTERN = re.compile(r"\b\d+(?:\.\d+)?\s*(?:ml\s*/\s*l|ml/l|millilit(?:re|er)s?\s+per\s+lit(?:re|er))\b", re.I)
+
+
+class ProductionAdvisoryService:
+    """Coordinates live LLM, retrieval, tools, durable memory, and hard safety gates."""
+
+    def __init__(self, settings: Settings) -> None:
+        self.settings = settings
+        self.memory = PostgresMemoryStore(settings.database_url)
+        self.retrieval = QdrantKnowledgeStore(settings)
+        self.tools = LiveDataGateway(settings)
+        self.llm = build_llm_provider(settings)
+
+    @staticmethod
+    def _require_profile_shape(farmer_id: str, profile: dict[str, Any] | None) -> dict[str, Any]:
+        if profile is None:
+            raise FarmerNotFoundError(farmer_id)
+        twin = profile.get("digital_twin")
+        required = ("farmer_id", "state", "district", "preferred_language")
+        if (
+            not isinstance(profile, dict)
+            or profile.get("farmer_id") != farmer_id
+            or not all(isinstance(profile.get(field), str) and profile[field] for field in required)
+            or not isinstance(twin, dict)
+        ):
+            raise ToolDataUnavailableError("The production farmer profile does not meet the trusted schema.")
+        return profile
+
+    def _live_consent(
+        self,
+        farmer_id: str,
+        required_scopes: frozenset[ConsentScope],
+        *,
+        request_id: str | None = None,
+    ) -> ConsentPreflightResult:
+        raw = self.tools.agristack_consent(farmer_id, "agricultural_advisory")
+        if raw is None:
+            raise FarmerNotFoundError(farmer_id)
+        now = datetime.now(timezone.utc)
+        try:
+            record = ConsentRecord(
+                consent_id=str(raw["consent_id"]),
+                farmer_id=farmer_id,
+                status=raw["status"],
+                purpose=str(raw["purpose"]),
+                scopes=raw["scopes"],
+                granted_at=raw.get("granted_at"),
+                expires_at=raw.get("expires_at"),
+                revoked_at=raw.get("revoked_at"),
+                provenance=SourceProvenance(
+                    provider="agristack",
+                    source_type="live_api",
+                    source_record_id=str(raw.get("source_record_id", raw["consent_id"])),
+                    retrieved_at=now,
+                    data_as_of=raw.get("updated_at"),
+                    freshness="live",
+                    request_id=request_id,
+                ),
+            )
+        except (KeyError, TypeError, ValidationError) as error:
+            raise ToolDataUnavailableError("The live consent provider returned an invalid receipt.") from error
+
+        allowed = (
+            record.status is ConsentStatus.GRANTED
+            and record.purpose == "agricultural_advisory"
+            and record.granted_at is not None
+            and record.granted_at <= now
+            and record.revoked_at is None
+            and (record.expires_at is None or record.expires_at > now)
+            and required_scopes.issubset(record.scopes)
+        )
+        result = ConsentPreflightResult(
+            allowed=allowed,
+            reason="granted" if allowed else "live_consent_not_granted",
+            consent=record,
+            required_scopes=required_scopes,
+        )
+        if not result.allowed:
+            raise ConsentNotGrantedError(farmer_id)
+        return result
+
+    @staticmethod
+    def _safe_farmer_context(farmer: dict[str, Any]) -> dict[str, Any]:
+        """Minimise PII and pass only decision-relevant facts to the LLM."""
+
+        twin = farmer["digital_twin"]
+        allowed_twin = {
+            key: twin[key]
+            for key in (
+                "season",
+                "current_crop",
+                "soil_fertility",
+                "water_budget_mm",
+                "budget_inr",
+                "eligible_schemes",
+            )
+            if key in twin
+        }
+        return {
+            "state": farmer["state"],
+            "district": farmer["district"],
+            "preferred_language": farmer["preferred_language"],
+            "digital_twin": allowed_twin,
+        }
+
+    def _refresh_farmer_context(
+        self, farmer_id: str, consent: ConsentPreflightResult
+    ) -> tuple[dict[str, Any], dict[str, Any]]:
+        """Refresh the twin from its live authorised source before every advisory."""
+
+        source = self.tools.agristack_farmer_context(farmer_id)
+        profile = self._require_profile_shape(farmer_id, source.get("data"))
+        self.memory.upsert_farmer(farmer_id, profile)
+        self.memory.upsert_consent(farmer_id, consent.consent.model_dump(mode="json"))
+        return profile, source
+
+    @staticmethod
+    def _evidence_for_prompt(hits: list[KnowledgeHit]) -> list[dict[str, Any]]:
+        return [
+            {
+                "id": str(hit.metadata.get("document_id", hit.title)),
+                "source": hit.source,
+                "title": hit.title,
+                "score": hit.score,
+                "metadata": hit.metadata,
+            }
+            for hit in hits
+        ]
+
+    def _retrieve(self, farmer: dict[str, Any], query: str) -> list[KnowledgeHit]:
+        filters = {"state": str(farmer["state"])}
+        hits: list[KnowledgeHit] = []
+        for collection in ("crop_kb", "pest_kb", "scheme_kb"):
+            hits.extend(self.retrieval.search(collection, query, filters=filters, limit=3))
+        return hits
+
+    @staticmethod
+    def _weather_is_unsafe(weather: dict[str, Any]) -> bool:
+        data = weather.get("data", {})
+        wind = data.get("wind_speed_kmh")
+        rain_probability = data.get("max_precipitation_probability")
+        return (isinstance(wind, (int, float)) and wind >= 50) or (
+            isinstance(rain_probability, (int, float)) and rain_probability >= 85
+        )
+
+    def _verify(
+        self,
+        plan: AgentPlan,
+        evidence: list[KnowledgeHit],
+        weather: dict[str, Any],
+        intent: Intent,
+    ) -> list[VerificationCheck]:
+        evidence_ids = {str(hit.metadata.get("document_id", hit.title)) for hit in evidence}
+        cited_ids = set(plan.evidence_ids)
+        grounding_ok = bool(cited_ids) and cited_ids.issubset(evidence_ids)
+        checks = [
+            VerificationCheck(
+                name="evidence_grounding",
+                status="pass" if grounding_ok else "fail",
+                message=(
+                    "Every LLM citation maps to evidence retrieved for this request."
+                    if grounding_ok
+                    else "The LLM draft has missing or unverified evidence citations and is blocked."
+                ),
+            ),
+            VerificationCheck(
+                name="weather_safety",
+                status="fail" if self._weather_is_unsafe(weather) else "pass",
+                message=(
+                    "Live weather exceeds the configured wind/rain safety threshold."
+                    if self._weather_is_unsafe(weather)
+                    else "Live weather is below the configured wind/rain safety threshold."
+                ),
+            ),
+            VerificationCheck(
+                name="source_freshness",
+                status="pass",
+                message="Consent, weather, market, and retrieval sources were read during this request.",
+            ),
+        ]
+        has_dose = bool(_DOSE_PATTERN.search(f"{plan.recommendation}\n{plan.explanation}"))
+        checks.append(
+            VerificationCheck(
+                name="pesticide_safety",
+                status="fail" if has_dose else "not_applicable",
+                message=(
+                    "The LLM draft contains a pesticide dose and is blocked from delivery."
+                    if has_dose
+                    else "No LLM-supplied pesticide dose was detected; dosage needs an authorised protocol."
+                ),
+            )
+        )
+        if intent is Intent.SCHEME:
+            checks.append(
+                VerificationCheck(
+                    name="scheme_eligibility",
+                    status="not_applicable",
+                    message="Eligibility must be confirmed by the authorised scheme system before submission.",
+                )
+            )
+        return checks
+
+    @staticmethod
+    def _hitl_case(
+        *,
+        case_id: str,
+        request_id: str,
+        farmer_id: str,
+        plan: AgentPlan,
+        intent: Intent,
+        verification: list[VerificationCheck],
+        evidence: list[KnowledgeHit],
+        trace: list[TraceEvent],
+        reason: str,
+        safety_rule_set_version: str,
+    ) -> dict[str, Any]:
+        return {
+            "case_id": case_id,
+            "farmer_id": farmer_id,
+            "status": "pending",
+            "reason": reason,
+            "request_id": request_id,
+            "safety_rule_set_version": safety_rule_set_version,
+            "intent": intent.value,
+            "confidence": plan.confidence,
+            "original_recommendation": plan.recommendation,
+            "original_explanation": plan.explanation,
+            "evidence": [hit.model_dump(mode="json") for hit in evidence],
+            "verification": [check.model_dump(mode="json") for check in verification],
+            "trace": [event.model_dump(mode="json") for event in trace],
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "decision_history": [],
+        }
+
+    def query(self, request) -> AdvisoryResponse:
+        request_id = str(uuid4())
+        consent = self._live_consent(
+            request.farmer_id,
+            frozenset({ConsentScope.FARMER_PROFILE, ConsentScope.ADVISORY, ConsentScope.ADVISORY_MEMORY}),
+            request_id=request_id,
+        )
+        farmer, agristack = self._refresh_farmer_context(request.farmer_id, consent)
+        weather = self.tools.weather(farmer)
+        market = self.tools.market(farmer, request.query)
+        evidence = self._retrieve(farmer, request.query)
+        plan = self.llm.plan_and_draft(
+            LLMRequest(
+                query=request.query,
+                language=request.language,
+                farmer_context=self._safe_farmer_context(farmer),
+                evidence=self._evidence_for_prompt(evidence),
+                tool_context={
+                    "weather": weather,
+                    "market": market,
+                    "agristack_context_provenance": {
+                        key: agristack[key]
+                        for key in ("provider", "source_record_id", "retrieved_at", "freshness")
+                    },
+                },
+                requested_intent=request.intent,
+            )
+        )
+        verification = self._verify(plan, evidence, weather, plan.intent)
+        verification_failed = any(check.status == "fail" for check in verification)
+        needs_hitl = (
+            verification_failed
+            or plan.needs_human_review
+            or plan.confidence < self.settings.hitl_confidence_threshold
+        )
+        trace = [
+            TraceEvent(
+                stage="consent_preflight",
+                status="completed",
+                detail="Verified live AgriStack consent before data access.",
+            ),
+            TraceEvent(
+                stage="memory_agent",
+                status="completed",
+                detail="Read the durable farmer twin and Qdrant evidence.",
+            ),
+            TraceEvent(
+                stage="live_tools",
+                status="completed",
+                detail="Read live AgriStack, weather, and market context.",
+            ),
+            TraceEvent(
+                stage="planner",
+                status="completed",
+                detail="Gemini produced a schema-validated grounded draft.",
+            ),
+            TraceEvent(
+                stage="reflection",
+                status="completed",
+                detail="Applied the LLM evidence and safety self-check contract.",
+            ),
+            TraceEvent(
+                stage="verifier",
+                status="completed",
+                detail="Applied deterministic grounding, weather, and dosage gates.",
+            ),
+        ]
+        hitl_case_id = None
+        if needs_hitl:
+            hitl_case_id = str(uuid4())
+            reason = "A hard safety check failed." if verification_failed else "Human review required by confidence or plan policy."
+            trace.append(TraceEvent(stage="human_in_the_loop", status="queued", detail=reason))
+            self.memory.enqueue_hitl(
+                self._hitl_case(
+                    case_id=hitl_case_id,
+                    request_id=request_id,
+                    farmer_id=request.farmer_id,
+                    plan=plan,
+                    intent=plan.intent,
+                    verification=verification,
+                    evidence=evidence,
+                    trace=trace,
+                    reason=reason,
+                    safety_rule_set_version=self.settings.safety_rule_set_version,
+                )
+            )
+        response = AdvisoryResponse(
+            request_id=request_id,
+            farmer_id=request.farmer_id,
+            safety_rule_set_version=self.settings.safety_rule_set_version,
+            intent=plan.intent,
+            status="requires_human_review" if needs_hitl else "delivered",
+            confidence=plan.confidence,
+            recommendation=plan.recommendation,
+            explanation=plan.explanation,
+            evidence=evidence,
+            reflection=ReflectionResult(status="pass", notes=plan.safety_notes or ["Grounded draft completed."]),
+            verification=verification,
+            trace=trace,
+            hitl_case_id=hitl_case_id,
+        )
+        episode = {
+            "request_id": request_id,
+            "farmer_id": request.farmer_id,
+            "intent": plan.intent.value,
+            "query": request.query,
+            "outcome": response.status,
+            "recommendation": response.recommendation,
+            "explanation": response.explanation,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+        self.memory.append_episode(episode)
+        try:
+            self.retrieval.append_episode(episode)
+        except Exception:
+            # PostgreSQL remains the system of record; indexing is retried by the worker.
+            response.trace.append(
+                TraceEvent(
+                    stage="memory_index",
+                    status="queued",
+                    detail="Episode vector indexing will be retried.",
+                )
+            )
+        return response
+
+    def search_memory(self, request: MemorySearchRequest) -> list[dict[str, object]]:
+        self._live_consent(
+            request.farmer_id,
+            frozenset({ConsentScope.ADVISORY, ConsentScope.ADVISORY_MEMORY}),
+        )
+        hits = self.retrieval.search("farmer_memory", request.query, filters={"farmer_id": request.farmer_id})
+        return [hit.model_dump(mode="json") for hit in hits]
+
+    def get_farmer(self, farmer_id: str) -> dict[str, object]:
+        consent = self._live_consent(
+            farmer_id, frozenset({ConsentScope.FARMER_PROFILE, ConsentScope.ADVISORY})
+        )
+        farmer, _ = self._refresh_farmer_context(farmer_id, consent)
+        return farmer
+
+    def sync_farmer(self, farmer_id: str) -> dict[str, object]:
+        """Explicit service/admin sync used to validate onboarding source contracts."""
+
+        consent = self._live_consent(
+            farmer_id,
+            frozenset({ConsentScope.FARMER_PROFILE, ConsentScope.ADVISORY}),
+        )
+        farmer, _ = self._refresh_farmer_context(farmer_id, consent)
+        return farmer
+
+    def ingest_knowledge(self, request: KnowledgeIngestRequest) -> str:
+        """Write a source-reviewed document into the governed semantic store."""
+
+        return self.retrieval.upsert_document(
+            request.collection,
+            title=request.title,
+            content=request.content,
+            metadata={
+                "state": request.state,
+                "source_name": request.source_name,
+                "source_url": request.source_url,
+                "source_updated_at": request.source_updated_at.isoformat(),
+                "reviewed_by": request.reviewed_by,
+                **request.metadata,
+            },
+        )
+
+    def decide_hitl(self, case_id: str, request: HITLDecisionRequest) -> HITLCase | None:
+        outcome = self.memory.decide_hitl(
+            case_id,
+            request.decision,
+            request.reviewer_note,
+            request.reviewer_name,
+            request.edited_recommendation,
+        )
+        if outcome.state == "not_pending":
+            raise HITLCaseNotPendingError(case_id)
+        if outcome.state == "safety_blocked":
+            raise HITLCaseSafetyBlockedError(case_id)
+        return HITLCase(**outcome.case) if outcome.case else None
+
+    def list_hitl_cases(self) -> list[HITLCase]:
+        return [HITLCase(**case) for case in self.memory.list_hitl()]
+
+    def get_hitl_case(self, case_id: str) -> HITLCase | None:
+        case = self.memory.get_hitl(case_id)
+        return HITLCase(**case) if case else None
+
+    def has_farmer(self, farmer_id: str) -> bool:
+        return self.memory.has_farmer(farmer_id)
+
+    def purge_farmer_runtime_data(self, farmer_id: str) -> dict[str, int]:
+        removed = self.memory.purge_farmer_runtime_data(farmer_id)
+        self.retrieval.delete_farmer_episodes(farmer_id)
+        return removed

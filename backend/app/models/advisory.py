@@ -66,6 +66,20 @@ class MemorySearchRequest(BaseModel):
     query: str = Field(min_length=1, max_length=500)
 
 
+class KnowledgeIngestRequest(BaseModel):
+    """A reviewed source document eligible for governed Qdrant ingestion."""
+
+    collection: Literal["crop_kb", "pest_kb", "scheme_kb"]
+    title: str = Field(min_length=3, max_length=300)
+    content: str = Field(min_length=20, max_length=20_000)
+    state: str = Field(min_length=2, max_length=80)
+    source_name: str = Field(min_length=2, max_length=160)
+    source_url: str = Field(min_length=8, max_length=1_500)
+    source_updated_at: datetime
+    reviewed_by: str = Field(min_length=2, max_length=160)
+    metadata: dict[str, str | int | float | bool | list[str]] = Field(default_factory=dict)
+
+
 class MemoryEpisode(BaseModel):
     """A validated local record of an advisory workflow outcome."""
 

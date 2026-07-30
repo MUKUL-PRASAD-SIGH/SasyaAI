@@ -2,7 +2,10 @@
 
 SasyaAI is a safety-gated agricultural-advisory platform for Indian farmers. It combines a farmer digital twin, grounded knowledge retrieval, specialised agent workflows, deterministic verification, and human review to produce practical, explainable guidance.
 
-This repository starts with a runnable synthetic-data demonstrator. It is deliberately credential-free and deterministic so the team can validate the workflow before connecting real farmer data, LLMs, or government APIs.
+This repository has two explicitly separated runtimes:
+
+- `RUNTIME_MODE=demo` is a credential-free local workflow over synthetic seed data. It exists for contract development and must not be presented as a live advisory service.
+- `RUNTIME_MODE=production` is the startup path: Gemini plans and drafts grounded advice, PostgreSQL owns farmer/HITL/audit state, Qdrant retrieves governed knowledge, and live AgriStack, weather, and market adapters supply source-attributed context. It refuses to boot until its credentials, durable stores, authentication, and telemetry endpoint are configured.
 
 ## What works today
 
@@ -13,14 +16,14 @@ This repository starts with a runnable synthetic-data demonstrator. It is delibe
 - Local production-readiness controls: API-key authentication/RBAC when enabled, farmer assignment checks, in-process rate limits, data-minimised audit events, runtime retention, and governed local deletion requests.
 - Vite/React extension-officer dashboard for reviewing evidence, verification, trace, and pending cases.
 - Backend, component, and browser end-to-end regression suites for the supported demonstrator flow.
-- Docker Compose for the API and optional local Qdrant service.
+- Docker Compose for the API, PostgreSQL, and Qdrant.
 - Tests for delivered advice, low-confidence escalation, unsafe-dose blocking, and API errors.
 
-## What is planned next
+## Production runtime
 
-The current service is a local workflow, not a production advisory system. Qdrant retrieval, Lyzr/ADK execution, AgriStack Sandbox adapters, PostgreSQL/PostGIS, real vision models, and the farmer/mobile experience are sequenced in [Docs/ROADMAP.md](Docs/ROADMAP.md).
+The production workflow is implemented behind provider boundaries so the model and official-data connectors can evolve without rewriting safety logic. Gemini is the initial LLM provider because it offers a limited free development tier, multilingual capability, and JSON output; production capacity must still be funded and rate-limited. It is never a source of truth: live data and Qdrant evidence are supplied to it, then deterministic gates enforce grounding, weather risk, and pesticide-dose policy before a response can be delivered.
 
-The local API deliberately starts in development-bypass mode. Before any non-local deployment, enable `AUTH_REQUIRED=true`, inject API credentials through a secret manager, and complete the human-owned gates in [Production Activation Checklist](Docs/PRODUCTION_ACTIVATION_CHECKLIST.md). Do not put an API key in a browser `VITE_*` variable.
+Before using `RUNTIME_MODE=production`, follow [Production Runtime](Docs/PRODUCTION_RUNTIME.md). The startup team must obtain approved AgriStack and market gateway contracts, populate governed PostgreSQL/Qdrant data, configure OIDC or the temporary backend credentials, and set the required secrets through a secret manager. A missing dependency prevents startup rather than silently using seed data.
 
 ## Quick start
 
@@ -47,9 +50,8 @@ To run the self-contained API container:
 docker compose up --build
 ```
 
-The current workflow does not query Qdrant. To include the optional local
-Qdrant container for retrieval experiments, use
-`docker compose --profile retrieval up --build`.
+Compose also starts PostgreSQL and Qdrant so the production stores are locally
+available. They remain unused while `RUNTIME_MODE=demo` is selected.
 
 ### Extension-officer dashboard
 
@@ -117,6 +119,7 @@ The seed records are synthetic. Do not add real farmer data, credentials, Aadhaa
 - [Security and Privacy](Docs/SECURITY.md)
 - [Development Guide](Docs/DEVELOPMENT.md)
 - [Verification and Dependency Report](Docs/VERIFICATION_AND_DEPENDENCY_REPORT.md)
+- [Production Runtime](Docs/PRODUCTION_RUNTIME.md)
 - [Production Activation Checklist](Docs/PRODUCTION_ACTIVATION_CHECKLIST.md)
 
 ## Contributing

@@ -10,10 +10,30 @@ services:
     volumes:
       # Keeps local demo episodes and review decisions across container restarts.
       - ./var:/app/var
+    depends_on:
+      postgres:
+        condition: service_healthy
+      qdrant:
+        condition: service_started
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: sasyaai
+      POSTGRES_USER: sasyaai
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sasyaai -d sasyaai"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
 
   qdrant:
     image: qdrant/qdrant:v1.9.4
-    profiles: ["retrieval"]
     ports:
       - "6333:6333"
       - "6334:6334"
@@ -23,4 +43,5 @@ services:
       QDRANT__SERVICE__GRPC_PORT: 6334
 
 volumes:
+  postgres_data:
   qdrant_data:

@@ -1,18 +1,22 @@
 # SasyaAI Verification and Dependency Report
 
 **Reviewed:** 31 July 2026  
-**Implementation status:** local production-readiness foundation added; live activation remains human-owned.
+**Implementation status:** demo runtime verified; production adapter path implemented but not live-activated.
 
 ## Executive answer
 
-SasyaAI is **built and tested as a local, synthetic-data demonstrator**. It is
-**not a complete production agricultural-advisory platform** and should not be
-represented as one.
+SasyaAI has two deliberately separate runtimes. The checked-in default is the
+local synthetic-data `demo` runtime; it makes **no external API calls** and is
+not a production advisory service. It reads checked-in seed JSON and writes
+local runtime JSON.
 
-The default running workflow makes **no external API calls**. It reads only
-checked-in seed JSON, writes local runtime JSON, and the dashboard calls the
-local FastAPI URL by default. No live farmer-data, government, LLM, Lyzr, or
-Qdrant API integration is active.
+The `production` runtime is now implemented behind explicit adapters. It uses
+Gemini for schema-constrained planning/drafting, PostgreSQL for durable state,
+Qdrant for filtered retrieval, and live AgriStack/weather/market gateways. It
+refuses to start without its provider configuration, authentication, and
+telemetry endpoint, so it cannot silently use demo data. No live credentials or
+source contracts are present in this checkout, therefore production has not
+been integration-tested against external providers.
 
 The demonstrator intentionally contains hardcoded/configured demo values and
 deterministic rules. These are documented below; they are not hidden live data
@@ -22,7 +26,7 @@ or embedded credentials.
 
 | Check | Result | Evidence |
 |---|---|---|
-| Backend tests | Pass | `python -m pytest -q` — **27 passed** |
+| Backend tests | Pass | `python -m pytest -q` — **29 passed** |
 | Backend lint | Pass | `python -m ruff check backend tests` — all checks passed |
 | Frontend component tests | Pass | `npm test` — 3 review-safety tests passed |
 | Browser end-to-end test | Pass | `npm run test:e2e` — Playwright verified the local API/dashboard hard-safety path |
@@ -56,20 +60,22 @@ No external API is required or called.
   server. It can be redirected only by explicitly setting
   `VITE_API_BASE_URL`.
 
-### Present but inactive/future-facing configuration
+### Production runtime configuration
 
 The repository contains placeholders for future integration work:
 
 | Item | Current status |
 |---|---|
-| `LYZR_API_KEY`, `LYZR_WORKFLOW_ID`, `LYZR_BASE_URL` | Empty/optional configuration; no running code invokes Lyzr |
-| `QDRANT_URL`, `QDRANT_API_KEY` and `qdrant-client` | Future retrieval dependency; current code uses lexical seed-JSON retrieval instead |
-| Qdrant Docker service | Optional Compose `retrieval` profile; not started by the default `docker compose up --build` path |
-| `httpx`, `sentence-transformers` dependencies | Installed project dependencies, but not used for a live external call in the current workflow |
+| `GEMINI_API_KEY`, `GEMINI_MODEL` | Required in production; the Gemini adapter returns typed JSON drafts with bounded retries |
+| `DATABASE_URL` | Required PostgreSQL system of record for production profiles, episodes, HITL cases, deletion receipts, and audit events |
+| `QDRANT_URL`, `QDRANT_API_KEY` and `qdrant-client` | Required in production for state-filtered semantic retrieval and farmer-scoped vector memory |
+| AgriStack and market gateway settings | Required in production; no source credential or contract is committed |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | Required in production; enables OpenTelemetry and `/metrics` instrumentation |
+| `LYZR_API_KEY`, `LYZR_WORKFLOW_ID`, `LYZR_BASE_URL` | Optional future orchestration configuration; no running code invokes Lyzr |
 
 Installing Python/Node dependencies or pulling Docker images can naturally use
 package registries/container registries if they are not already cached. That is
-build tooling, not a runtime data/API dependency of the demonstrator.
+build tooling, not a runtime data/API dependency of demo mode.
 
 ## Hardcoded and seeded values
 
@@ -78,7 +84,7 @@ repeatable synthetic demo, but must be replaced or governed before production.
 
 | Category | Examples | Status |
 |---|---|---|
-| Synthetic farmer and knowledge data | Names, IDs, districts, crops, water/budget values, consent fixtures, crop/pest/scheme records in `data/seed/` | Intentional; every farmer seed requires `synthetic_data: true` |
+| Synthetic farmer and knowledge data | Names, IDs, districts, crops, water/budget values, consent fixtures, crop/pest/scheme records in `data/seed/` | Intentional demo-only fixtures; every seed requires `synthetic_data: true` |
 | Safety rules | Water/budget checks and seeded pest protocol dose limits | Intentional deterministic controls; require agricultural-domain governance for production |
 | Thresholds and local defaults | HITL threshold `0.70`, local CORS origins, default local API URL/ports | Configurable through environment values where applicable; local defaults are intentional |
 | Dashboard scenarios | Demo questions and doses in `frontend/src/data.ts` | Intentional UX fixtures |

@@ -1,4 +1,4 @@
-"""FastAPI entry point for the SasyaAI demonstrator."""
+"""FastAPI entry point for the SasyaAI demo and production runtimes."""
 
 from datetime import datetime, timezone
 from pathlib import Path
@@ -13,6 +13,7 @@ from app.models.advisory import (
     AdvisoryResponse,
     HITLCase,
     HITLDecisionRequest,
+    KnowledgeIngestRequest,
     MemorySearchRequest,
     QueryRequest,
 )
@@ -26,6 +27,14 @@ from app.services.advisory import (
 )
 from app.services.consent import ConsentAdapterUnavailableError
 from app.services.memory import LocalAuditLog, LocalDeletionRequestStore, RuntimeStateError
+from app.services.observability import configure_observability
+from app.services.persistence import (
+    PersistenceUnavailableError,
+    PostgresAuditLog,
+    PostgresDeletionRequestStore,
+)
+from app.services.production import ProductionAdvisoryService
+from app.services.resilience import ProviderUnavailableError
 from app.services.security import (
     ApiKeyAuthorizer,
     AuthenticationError,
@@ -38,10 +47,16 @@ from app.services.security import (
 
 def create_app(runtime_dir: Path | None = None, settings: Settings | None = None) -> FastAPI:
     settings = settings or get_settings()
+    configuration_errors = settings.production_configuration_errors()
+    if configuration_errors:
+        raise RuntimeError(
+            "Production runtime cannot start until these settings are configured: "
+            + ", ".join(configuration_errors)
+        )
     app = FastAPI(
         title="SasyaAI API",
-        version="0.1.0",
-        description="Synthetic-data, safety-gated demonstrator for SasyaAI.",
+        version=settings.service_version,
+        description="Safety-gated agricultural advisory platform for Indian farmers.",
     )
     app.add_middleware(
         CORSMiddleware,
@@ -50,8 +65,17 @@ def create_app(runtime_dir: Path | None = None, settings: Settings | None = None
         allow_methods=["GET", "POST", "DELETE"],
         allow_headers=["Content-Type", "X-API-Key"],
     )
+    configure_observability(app, settings)
     active_runtime_dir = runtime_dir or settings.runtime_dir
-    app.state.advisory_service = AdvisoryService(settings=settings, runtime_dir=active_runtime_dir)
+    if settings.runtime_mode == "production":
+        production_service = ProductionAdvisoryService(settings=settings)
+        app.state.advisory_service = production_service
+        app.state.audit_log = PostgresAuditLog(production_service.memory)
+        app.state.deletion_requests = PostgresDeletionRequestStore(production_service.memory)
+    else:
+        app.state.advisory_service = AdvisoryService(settings=settings, runtime_dir=active_runtime_dir)
+        app.state.audit_log = LocalAuditLog(active_runtime_dir)
+        app.state.deletion_requests = LocalDeletionRequestStore(active_runtime_dir)
     app.state.authorizer = ApiKeyAuthorizer(
         auth_required=settings.auth_required,
         credential_json=settings.auth_principals_json,
@@ -63,9 +87,6 @@ def create_app(runtime_dir: Path | None = None, settings: Settings | None = None
             window_seconds=settings.rate_limit_window_seconds,
         )
     )
-    app.state.audit_log = LocalAuditLog(active_runtime_dir)
-    app.state.deletion_requests = LocalDeletionRequestStore(active_runtime_dir)
-
     @app.exception_handler(RuntimeStateError)
     def runtime_state_error_handler(_: Request, __: RuntimeStateError) -> JSONResponse:
         return JSONResponse(
@@ -73,6 +94,20 @@ def create_app(runtime_dir: Path | None = None, settings: Settings | None = None
             content={
                 "detail": "Local demonstrator state is unavailable; no advisory was delivered."
             },
+        )
+
+    @app.exception_handler(PersistenceUnavailableError)
+    def persistence_error_handler(_: Request, __: PersistenceUnavailableError) -> JSONResponse:
+        return JSONResponse(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            content={"detail": "Durable advisory state is unavailable; no advisory was delivered."},
+        )
+
+    @app.exception_handler(ProviderUnavailableError)
+    def provider_error_handler(_: Request, __: ProviderUnavailableError) -> JSONResponse:
+        return JSONResponse(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            content={"detail": "A required live provider is unavailable; no advisory was delivered."},
         )
 
     @app.exception_handler(ConsentAdapterUnavailableError)
@@ -135,11 +170,11 @@ def create_app(runtime_dir: Path | None = None, settings: Settings | None = None
                         "status_code": response.status_code,
                     }
                 )
-            except RuntimeStateError:
+            except (RuntimeStateError, PersistenceUnavailableError):
                 response.headers["X-Audit-Status"] = "unavailable"
         return response
 
-    def service() -> AdvisoryService:
+    def service() -> AdvisoryService | ProductionAdvisoryService:
         return app.state.advisory_service
 
     def current_principal(request: Request) -> Principal:
@@ -177,12 +212,12 @@ def create_app(runtime_dir: Path | None = None, settings: Settings | None = None
             return service().query(request)
         except FarmerNotFoundError as error:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="Unknown demo farmer ID."
+                status_code=status.HTTP_404_NOT_FOUND, detail="Unknown farmer ID."
             ) from error
         except ConsentNotGrantedError as error:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="Advisory consent has not been granted for this demo farmer.",
+                detail="Advisory consent has not been granted for this farmer.",
             ) from error
 
     @app.get("/api/v1/farmers/{farmer_id}", tags=["farmers"])
@@ -197,12 +232,36 @@ def create_app(runtime_dir: Path | None = None, settings: Settings | None = None
             return service().get_farmer(farmer_id)
         except FarmerNotFoundError as error:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="Unknown demo farmer ID."
+                status_code=status.HTTP_404_NOT_FOUND, detail="Unknown farmer ID."
             ) from error
         except ConsentNotGrantedError as error:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="Advisory consent has not been granted for this demo farmer.",
+                detail="Advisory consent has not been granted for this farmer.",
+            ) from error
+
+    @app.post("/api/v1/farmers/{farmer_id}/sync", tags=["farmers"])
+    def sync_farmer(
+        farmer_id: str,
+        http_request: Request,
+        _: Principal = Depends(require_roles(Role.SYSTEM_ADMIN)),
+    ) -> dict[str, object]:
+        if settings.runtime_mode != "production":
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Farmer synchronisation is available only in the production runtime.",
+            )
+        http_request.state.audit_resource = f"farmer:{farmer_id}:sync"
+        try:
+            return service().sync_farmer(farmer_id)
+        except FarmerNotFoundError as error:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Unknown farmer ID."
+            ) from error
+        except ConsentNotGrantedError as error:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Advisory consent has not been granted for this farmer.",
             ) from error
 
     @app.post("/api/v1/memory/search", tags=["memory"])
@@ -217,13 +276,28 @@ def create_app(runtime_dir: Path | None = None, settings: Settings | None = None
             return service().search_memory(request)
         except FarmerNotFoundError as error:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="Unknown demo farmer ID."
+                status_code=status.HTTP_404_NOT_FOUND, detail="Unknown farmer ID."
             ) from error
         except ConsentNotGrantedError as error:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="Advisory consent has not been granted for this demo farmer.",
+                detail="Advisory consent has not been granted for this farmer.",
             ) from error
+
+    @app.post("/api/v1/knowledge/documents", tags=["knowledge"])
+    def ingest_knowledge(
+        request: KnowledgeIngestRequest,
+        http_request: Request,
+        _: Principal = Depends(require_roles(Role.SYSTEM_ADMIN)),
+    ) -> dict[str, str]:
+        if settings.runtime_mode != "production":
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Knowledge ingestion is available only in the production runtime.",
+            )
+        http_request.state.audit_resource = f"knowledge:{request.collection}"
+        document_id = service().ingest_knowledge(request)
+        return {"document_id": document_id}
 
     @app.post(
         "/api/v1/hitl/{case_id}/decision", response_model=HITLCase, tags=["human-in-the-loop"]
@@ -249,11 +323,14 @@ def create_app(runtime_dir: Path | None = None, settings: Settings | None = None
                 detail="This HITL case has already received a decision.",
             ) from error
         except HITLCaseSafetyBlockedError as error:
+            deployment_label = (
+                "local demonstrator" if settings.runtime_mode == "demo" else "current deployment"
+            )
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail=(
                     "This case has failed hard safety checks and cannot be approved in the "
-                    "local demonstrator."
+                    f"{deployment_label}."
                 ),
             ) from error
         if case is None:
@@ -295,7 +372,7 @@ def create_app(runtime_dir: Path | None = None, settings: Settings | None = None
     ) -> DeletionRequest:
         if not service().has_farmer(farmer_id):
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="Unknown demo farmer ID."
+                status_code=status.HTTP_404_NOT_FOUND, detail="Unknown farmer ID."
             )
         http_request.state.audit_resource = f"runtime_data:{farmer_id}"
         service().purge_farmer_runtime_data(farmer_id)
@@ -308,7 +385,7 @@ def create_app(runtime_dir: Path | None = None, settings: Settings | None = None
             locally_purged_scopes=["advisory_memory", "hitl_cases"],
             human_action_required=(
                 "Confirm deletion with every configured live provider, backup system, and legal-retention owner; "
-                "checked-in synthetic seed fixtures are intentionally immutable."
+                "checked-in demo seed fixtures are immutable and outside this deletion scope."
             ),
         )
         app.state.deletion_requests.append(deletion_request.model_dump(mode="json"))
