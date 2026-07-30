@@ -28,6 +28,19 @@ Compose mounts `./var` into the API container so local advisory episodes and
 HITL decisions survive an API-container restart. It contains only synthetic
 demo state and is ignored by Git.
 
+## Protected-mode foundation
+
+The default `.env.example` keeps the local synthetic demo open. Any non-local
+environment must set `AUTH_REQUIRED=true`, provide `AUTH_PRINCIPALS_JSON` from
+a secret manager, configure an approved `SAFETY_RULE_SET_VERSION`, and set an
+explicit retention period. The current API-key mechanism is a transitional
+adapter; do not put its value in a browser environment file. Replace it with
+the approved OIDC/JWT gateway and distributed rate limiting before production.
+
+Follow [PRODUCTION_ACTIVATION_CHECKLIST.md](PRODUCTION_ACTIVATION_CHECKLIST.md)
+for the live-consent, provider, database, audit-export, backup, monitoring,
+and security gates that are not activated by this repository.
+
 ## Dashboard
 
 The officer dashboard is intentionally run as a separate local Vite process:

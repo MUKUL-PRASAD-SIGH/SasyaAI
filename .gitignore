@@ -222,6 +222,7 @@ test-results/
 junit.xml
 playwright-report/
 playwright/.cache/
+blob-report/
 
 # ─────────────────────────────────────────────────────────────────
 # 📓 NOTEBOOKS & EXPERIMENTS

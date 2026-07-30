@@ -22,12 +22,11 @@ or embedded credentials.
 
 | Check | Result | Evidence |
 |---|---|---|
-| Backend tests | Pass | `python -m pytest -q` — **26 passed** before the current documentation/foundation finalisation |
+| Backend tests | Pass | `python -m pytest -q` — **27 passed** |
 | Backend lint | Pass | `python -m ruff check backend tests` — all checks passed |
 | Frontend component tests | Pass | `npm test` — 3 review-safety tests passed |
 | Browser end-to-end test | Pass | `npm run test:e2e` — Playwright verified the local API/dashboard hard-safety path |
 | Frontend typecheck and production build | Pass | `npm run build` — TypeScript and Vite build succeeded |
-| Git working tree before this report | Clean | No uncommitted application changes were present |
 | Static external-dependency scan | Reviewed | Searched backend/frontend/configuration for URLs, API-key fields, HTTP clients, Lyzr, and Qdrant references |
 
 Not performed in this verification pass:
@@ -115,15 +114,13 @@ The local demonstrator now enforces the following:
 ## Human-owned production gates
 
 Before any real-user or consequential deployment, the following remain
-human-owned actions are required:
+human-owned activation gates:
 
 - Authenticated and authorised users, role-based review access, and rate limits.
 - Live consent receipt verification, revocation cleanup, audit logging, and
   governed retention/deletion workflows.
 - Approved, freshness-labelled authoritative agricultural data adapters.
 - Domain-reviewed and versioned safety rules plus real evaluation data.
-- Durable production data stores, monitoring, incident handling, backups, and
-  security testing.
 - Durable production data stores, monitoring, incident handling, backups, and
   security testing.
 
