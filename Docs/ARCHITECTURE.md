@@ -4,7 +4,7 @@
 
 SasyaAI has two deliberately separate shapes:
 
-- **Demonstrator:** a deterministic FastAPI workflow backed by checked-in synthetic data. It proves contracts, decision flow, verification, memory ownership, and HITL without claiming live-data or model capability.
+- **Demonstrator:** a deterministic FastAPI workflow backed by checked-in synthetic data. It proves contracts, consent preflight, decision flow, verification, memory ownership, and HITL without claiming live-data or model capability.
 - **Production platform:** independently deployable agent, data, and delivery components connected to consent-gated government and earth-observation sources.
 
 The demonstrator is an architectural thin slice of the production target, not a mock that bypasses safety controls.
@@ -40,6 +40,7 @@ flowchart LR
 | Component | Current implementation | Production replacement or extension |
 |---|---|---|
 | API | `backend/app/main.py` FastAPI routes | Gateway, OAuth2/JWT, rate limiting, audit middleware |
+| Consent gate | Typed, fail-closed synthetic fixture adapter with purpose, scope, lifecycle, and provenance checks | Authenticated consent receipt verifier and revocation/cleanup workflow |
 | Orchestration | Deterministic `AdvisoryService` | Lyzr SuperFlow and/or typed Google ADK graph |
 | Agent tools | Seed JSON and predictable context | AgriStack, IMD, eNAM, Bhuvan, CGWB, scheme, and ML adapters |
 | Knowledge retrieval | Lexical ranking over seed JSON | Qdrant hybrid retrieval with payload filters and embedding lifecycle |
@@ -60,7 +61,7 @@ sequenceDiagram
     participant H as HITL queue
 
     U->>A: Query + farmer ID
-    A->>A: Authenticate and verify consent
+    A->>A: Preflight a typed consent receipt before any profile or memory access
     A->>O: Classify intent and build task graph
     O->>M: Read twin and retrieve context
     M-->>O: Filtered knowledge and episode context
@@ -115,12 +116,13 @@ Production services communicate through typed HTTP or event contracts. A task mu
 
 ## 8. Security architecture
 
-1. Verify consent and role before every farmer-data access.
+1. Verify consent and role before every farmer-data access. The local adapter is fixture-only and fails closed; it is not an authentication or live-consent substitute.
 2. Enforce least privilege and typed service-to-service identity.
 3. Minimise PII: no Aadhaar storage, hashed mobile identifiers, rounded location when exact geometry is unnecessary.
 4. Encrypt sensitive data at rest and in transit; keep production PII in Indian regions.
 5. Sanitize untrusted content and never allow prompts to override verification rules.
 6. Preserve an audit record of data access, advice, verifier outcomes, and human decisions.
+7. Treat failed deterministic safety checks as non-overridable in the demonstrator; a reviewer may reject the case and start a new verified request, but cannot approve or edit around the failure.
 
 The full consent, threat, RBAC, incident, and retention specifications are in [SECURITY.md](SECURITY.md).
 

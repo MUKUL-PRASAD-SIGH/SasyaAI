@@ -7,7 +7,7 @@ The local API operates only on checked-in synthetic data. It has no authenticati
 ## Conventions
 
 - JSON request and response bodies use UTF-8.
-- `400` indicates malformed content, `404` indicates an unknown demo resource, and `422` indicates a schema-validation failure.
+- `400` indicates malformed content, `403` indicates consent is not currently valid for the requested advisory use, `404` indicates an unknown demo resource, `422` indicates a schema-validation failure, and `503` indicates a local state or consent-adapter failure that is blocked from delivery.
 - Advisory response `status` is either `delivered` or `requires_human_review`.
 - A response is never auto-delivered when a verification check fails or confidence is below `0.70`.
 
@@ -25,7 +25,7 @@ Returns service health without exposing dependencies or configuration.
 
 ## `POST /api/v1/query`
 
-Classifies the request, retrieves demo context, runs reflection and hard checks, appends an episode through the Memory boundary, and either returns advice or creates an HITL case.
+Checks a typed synthetic consent fixture before any profile read, then classifies the request, retrieves demo context, runs reflection and hard checks, appends an episode through the Memory boundary, and either returns advice or creates an HITL case. The consent result records static-fixture provenance internally; it does not call a live provider.
 
 Request:
 
@@ -64,7 +64,7 @@ When advice requires review, `status` is `requires_human_review` and `hitl_case_
 
 ## `GET /api/v1/farmers/{farmer_id}`
 
-Returns a synthetic farmer twin for the demo. Example IDs:
+Returns a synthetic farmer twin for the demo only after a consent preflight. Example IDs:
 
 - `AGR_MH_001234`
 - `AGR_TG_005678`
@@ -74,7 +74,7 @@ Production equivalent: return only fields authorised by caller role, consent, pu
 
 ## `POST /api/v1/memory/search`
 
-Searches runtime advisory episodes for a farmer. The API retains the `farmer_id` filter as an invariant; production Qdrant search must do the same.
+Checks consent before searching runtime advisory episodes for a farmer. The API retains the `farmer_id` filter as an invariant; production Qdrant search must do the same.
 
 ```json
 {
@@ -90,12 +90,19 @@ confidence, evidence, deterministic verification results, workflow trace, and
 append-only decision history so an extension officer can review the complete
 demo context.
 
+If any deterministic verification status is `fail`, the local demonstrator
+allows only `reject`; `approve` and `edit_and_approve` return `409`. An officer
+must start a fresh, safely parameterised request rather than override a hard
+safety check.
+
 This is an unauthenticated synthetic-data demonstration endpoint. Production
 must scope cases to an assigned, authorised reviewer.
 
 ## `POST /api/v1/hitl/{case_id}/decision`
 
 Records an extension-officer decision for a pending case.
+
+For a case with a failed deterministic check, only `reject` is accepted.
 
 ```json
 {

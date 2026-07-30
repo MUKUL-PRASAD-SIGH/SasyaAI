@@ -20,6 +20,12 @@ from app.models.advisory import (
     TraceEvent,
     VerificationCheck,
 )
+from app.models.integration import ConsentPreflightResult, ConsentScope
+from app.services.consent import (
+    ConsentAdapter,
+    ConsentAdapterUnavailableError,
+    SyntheticConsentAdapter,
+)
 from app.services.memory import HITLQueue, LocalMemoryStore, SeedRepository
 
 
@@ -33,6 +39,10 @@ class ConsentNotGrantedError(Exception):
 
 class HITLCaseNotPendingError(Exception):
     """Raised when a decision would overwrite a completed review."""
+
+
+class HITLCaseSafetyBlockedError(Exception):
+    """Raised when a reviewer tries to approve a case with failed hard checks."""
 
 
 @dataclass(frozen=True)
@@ -52,10 +62,16 @@ class AdvisoryDraft:
 class AdvisoryService:
     """Coordinates routing, memory, reflection, verification, and HITL."""
 
-    def __init__(self, settings: Settings | None = None, runtime_dir: Path | None = None) -> None:
+    def __init__(
+        self,
+        settings: Settings | None = None,
+        runtime_dir: Path | None = None,
+        consent_adapter: ConsentAdapter | None = None,
+    ) -> None:
         self.settings = settings or get_settings()
         active_runtime_dir = runtime_dir or self.settings.runtime_dir
         self.repository = SeedRepository(self.settings.seed_data_dir)
+        self.consent_adapter = consent_adapter or SyntheticConsentAdapter(self.repository)
         self.memory = LocalMemoryStore(active_runtime_dir)
         self.hitl = HITLQueue(active_runtime_dir)
 
@@ -89,15 +105,46 @@ class AdvisoryService:
             for record in records
         ]
 
-    @staticmethod
-    def _has_advisory_consent(farmer: dict[str, object]) -> bool:
-        consent = farmer.get("consent")
-        return isinstance(consent, dict) and consent.get("advisory") is True
+    def _require_consent(
+        self,
+        farmer_id: str,
+        required_scopes: frozenset[ConsentScope],
+        *,
+        request_id: str | None = None,
+    ) -> ConsentPreflightResult:
+        """Check the minimal consent index before any profile or memory access."""
 
-    @classmethod
-    def _require_advisory_consent(cls, farmer: dict[str, object]) -> None:
-        if not cls._has_advisory_consent(farmer):
-            raise ConsentNotGrantedError(str(farmer.get("farmer_id", "unknown")))
+        result = self.consent_adapter.preflight(
+            farmer_id=farmer_id,
+            purpose="agricultural_advisory",
+            required_scopes=required_scopes,
+            request_id=request_id,
+        )
+        if result is None:
+            raise FarmerNotFoundError(farmer_id)
+        if not isinstance(result, ConsentPreflightResult):
+            raise ConsentAdapterUnavailableError("Consent adapter returned an invalid result.")
+        if result.consent.farmer_id != farmer_id:
+            raise ConsentAdapterUnavailableError("Consent receipt does not match the requested farmer.")
+        if not result.allowed:
+            raise ConsentNotGrantedError(farmer_id)
+        if not required_scopes.issubset(result.consent.scopes):
+            raise ConsentAdapterUnavailableError("Granted consent receipt is missing a required scope.")
+        return result
+
+    def _read_authorised_farmer(
+        self, farmer_id: str, receipt: ConsentPreflightResult
+    ) -> dict[str, object]:
+        """Read a profile only after a valid grant and reject fixture mismatches."""
+
+        if not receipt.allowed or receipt.consent.farmer_id != farmer_id:
+            raise ConsentAdapterUnavailableError("Consent receipt cannot authorise this profile read.")
+        farmer = self.repository.get_farmer(farmer_id)
+        if farmer is None or farmer.get("farmer_id") != farmer_id:
+            raise ConsentAdapterUnavailableError(
+                "Consent and synthetic farmer profile fixtures are inconsistent."
+            )
+        return farmer
 
     @staticmethod
     def _regional_records(
@@ -370,10 +417,19 @@ class AdvisoryService:
         return checks
 
     def query(self, request: QueryRequest) -> AdvisoryResponse:
-        farmer = self.repository.get_farmer(request.farmer_id)
-        if farmer is None:
-            raise FarmerNotFoundError(request.farmer_id)
-        self._require_advisory_consent(farmer)
+        request_id = str(uuid4())
+        consent = self._require_consent(
+            request.farmer_id,
+            frozenset(
+                {
+                    ConsentScope.FARMER_PROFILE,
+                    ConsentScope.ADVISORY,
+                    ConsentScope.ADVISORY_MEMORY,
+                }
+            ),
+            request_id=request_id,
+        )
+        farmer = self._read_authorised_farmer(request.farmer_id, consent)
 
         intent = request.intent or self.classify_intent(request.query)
         if intent == Intent.DIAGNOSE:
@@ -386,8 +442,15 @@ class AdvisoryService:
         verification = self._verify(farmer, request, intent, draft)
         verification_failed = any(check.status == "fail" for check in verification)
         needs_hitl = verification_failed or draft.confidence < self.settings.hitl_confidence_threshold
-        request_id = str(uuid4())
         trace = [
+            TraceEvent(
+                stage="consent_preflight",
+                status="completed",
+                detail=(
+                    "Validated synthetic advisory consent and required scopes before reading "
+                    f"farmer data via {consent.consent.provenance.provider}."
+                ),
+            ),
             TraceEvent(
                 stage="intent_classifier",
                 status="completed",
@@ -475,18 +538,18 @@ class AdvisoryService:
         return response
 
     def search_memory(self, request: MemorySearchRequest) -> list[dict[str, object]]:
-        farmer = self.repository.get_farmer(request.farmer_id)
-        if farmer is None:
-            raise FarmerNotFoundError(request.farmer_id)
-        self._require_advisory_consent(farmer)
+        self._require_consent(
+            request.farmer_id,
+            frozenset({ConsentScope.ADVISORY, ConsentScope.ADVISORY_MEMORY}),
+        )
         return self.memory.search(request.farmer_id, request.query)
 
     def get_farmer(self, farmer_id: str) -> dict[str, object]:
-        farmer = self.repository.get_farmer(farmer_id)
-        if farmer is None:
-            raise FarmerNotFoundError(farmer_id)
-        self._require_advisory_consent(farmer)
-        return farmer
+        consent = self._require_consent(
+            farmer_id,
+            frozenset({ConsentScope.FARMER_PROFILE, ConsentScope.ADVISORY}),
+        )
+        return self._read_authorised_farmer(farmer_id, consent)
 
     def decide_hitl(self, case_id: str, request: HITLDecisionRequest) -> HITLCase | None:
         case = self.hitl.decide(
@@ -496,9 +559,11 @@ class AdvisoryService:
             request.reviewer_name,
             request.edited_recommendation,
         )
-        if case is None and self.hitl.get(case_id) is not None:
+        if case.state == "not_pending":
             raise HITLCaseNotPendingError(case_id)
-        return HITLCase(**case) if case else None
+        if case.state == "safety_blocked":
+            raise HITLCaseSafetyBlockedError(case_id)
+        return HITLCase(**case.case) if case.case else None
 
     def list_hitl_cases(self) -> list[HITLCase]:
         return [HITLCase(**case) for case in self.hitl.list()]

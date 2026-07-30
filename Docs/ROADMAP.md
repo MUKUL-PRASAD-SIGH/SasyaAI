@@ -206,6 +206,7 @@ Quality gates:
 | AGT-02 | M2 | Memory ownership and retrieval adapter | Backend/data | 2d | DAT-01 | Parallel with AGT-01 | Retrieval and append interface |
 | SAFE-01 | M2 | Rule catalogue and unit tests | Domain + backend | 2d | DAT-02 | Parallel with AGT-01 | Executable hard checks |
 | HITL-01 | M3 | Officer review queue and decision audit | Full-stack + backend | 2d | SAFE-01 | Sequential | Approve/edit/reject flow |
+| INT-01a | M3/M4 bridge | Fixture-only consent preflight and provenance contract | Backend + security | 1d | HITL-01 | Sequential | Fail-closed local contract tests; no live credentials or network |
 | INT-01 | M4 | Consent adapter and revocation test | Backend + security | 3d | HITL-01 | Sequential | Sandbox consent evidence |
 | INT-02 | M4 | Farmer, land, crop adapters | Backend/data | 5d | INT-01 | Parallel by API | Contract-tested adapters |
 | MLOPS-01 | M5 | Vision data, evaluation, calibration | CV + domain | 4w | DAT-02 | Parallel with INT-02 | Model card and test report |

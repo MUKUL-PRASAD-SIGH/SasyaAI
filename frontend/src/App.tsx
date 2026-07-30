@@ -17,9 +17,11 @@ import type {
   AdvisoryResponse,
   CaseStatus,
   Decision,
+  Evidence,
   HitlCase,
   Intent,
   QueryRequest,
+  TraceEvent,
   VerificationCheck,
 } from "./types";
 
@@ -108,63 +110,45 @@ function VerificationList({ checks }: { checks: VerificationCheck[] }) {
   );
 }
 
-function EvidenceList({ response }: { response: AdvisoryResponse }) {
+function EvidenceList({ evidence }: { evidence: Evidence[] }) {
   return (
-    <section className="panel evidence-panel" aria-labelledby="evidence-heading">
-      <div className="panel-heading">
-        <div>
-          <p className="eyebrow">Grounding</p>
-          <h3 id="evidence-heading">Seeded evidence</h3>
-        </div>
-        <span className="count-pill">{response.evidence.length} records</span>
-      </div>
-      <ul className="evidence-list">
-        {response.evidence.map((hit) => (
-          <li key={`${hit.source}-${hit.title}`}>
-            <div className="evidence-title-row">
-              <strong>{hit.title}</strong>
-              <span>{Math.round(hit.score * 100)}% match</span>
-            </div>
-              <p className="source-tag">{hit.source.replace(/_/g, " ")}</p>
-            {Object.keys(hit.metadata).length > 0 && (
-              <dl className="metadata-list">
-                {Object.entries(hit.metadata).map(([key, value]) => (
-                  <div key={key}>
-                    <dt>{key.replace(/_/g, " ")}</dt>
-                    <dd>{Array.isArray(value) ? value.join(", ") : String(value)}</dd>
-                  </div>
-                ))}
-              </dl>
-            )}
-          </li>
-        ))}
-      </ul>
-    </section>
+    <ul className="evidence-list">
+      {evidence.map((hit) => (
+        <li key={`${hit.source}-${hit.title}`}>
+          <div className="evidence-title-row">
+            <strong>{hit.title}</strong>
+            <span>{Math.round(hit.score * 100)}% match</span>
+          </div>
+          <p className="source-tag">{hit.source.replace(/_/g, " ")}</p>
+          {Object.keys(hit.metadata).length > 0 && (
+            <dl className="metadata-list">
+              {Object.entries(hit.metadata).map(([key, value]) => (
+                <div key={key}>
+                  <dt>{key.replace(/_/g, " ")}</dt>
+                  <dd>{Array.isArray(value) ? value.join(", ") : String(value)}</dd>
+                </div>
+              ))}
+            </dl>
+          )}
+        </li>
+      ))}
+    </ul>
   );
 }
 
-function TraceList({ response }: { response: AdvisoryResponse }) {
+function TraceList({ trace }: { trace: TraceEvent[] }) {
   return (
-    <section className="panel trace-panel" aria-labelledby="trace-heading">
-      <div className="panel-heading">
-        <div>
-          <p className="eyebrow">Audit trail</p>
-          <h3 id="trace-heading">Workflow trace</h3>
-        </div>
-        <span className="count-pill">{response.trace.length} stages</span>
-      </div>
-      <ol className="trace-list">
-        {response.trace.map((event) => (
-          <li key={`${event.stage}-${event.detail}`}>
-            <span className={`trace-dot trace-${event.status}`} aria-hidden="true" />
-            <div>
-              <strong>{event.stage.replace(/_/g, " ")}</strong>
-              <p>{event.detail}</p>
-            </div>
-          </li>
-        ))}
-      </ol>
-    </section>
+    <ol className="trace-list">
+      {trace.map((event) => (
+        <li key={`${event.stage}-${event.detail}`}>
+          <span className={`trace-dot trace-${event.status}`} aria-hidden="true" />
+          <div>
+            <strong>{event.stage.replace(/_/g, " ")}</strong>
+            <p>{event.detail}</p>
+          </div>
+        </li>
+      ))}
+    </ol>
   );
 }
 
@@ -190,6 +174,17 @@ function App() {
     () => cases.find((caseItem) => caseItem.case_id === activeCaseId) ?? null,
     [activeCaseId, cases],
   );
+  const activeCaseFarmer = useMemo(
+    () =>
+      activeCase
+        ? syntheticFarmers.find((farmer) => farmer.id === activeCase.farmer_id)
+        : undefined,
+    [activeCase],
+  );
+  const activeCaseHasHardSafetyFailure = useMemo(
+    () => activeCase?.verification?.some((check) => check.status === "fail") ?? false,
+    [activeCase],
+  );
 
   async function refreshQueue() {
     setIsLoadingQueue(true);
@@ -213,6 +208,15 @@ function App() {
   useEffect(() => {
     void refreshQueue();
   }, []);
+
+  useEffect(() => {
+    setReviewError(null);
+    setReviewForm((current) => ({
+      ...initialReviewForm,
+      decision: activeCaseHasHardSafetyFailure ? "reject" : initialReviewForm.decision,
+      reviewerName: current.reviewerName,
+    }));
+  }, [activeCaseId, activeCaseHasHardSafetyFailure]);
 
   function applyScenario(nextScenarioId: string) {
     const scenario = queryScenarios.find((item) => item.id === nextScenarioId);
@@ -279,6 +283,12 @@ function App() {
       return;
     }
     setReviewError(null);
+    if (activeCaseHasHardSafetyFailure && reviewForm.decision !== "reject") {
+      setReviewError(
+        "Cases with failed deterministic safety checks can only be rejected in this demonstrator.",
+      );
+      return;
+    }
     if (
       reviewForm.decision === "edit_and_approve" &&
       !reviewForm.editedRecommendation.trim()
@@ -303,9 +313,8 @@ function App() {
         ),
       );
       setReviewForm((current) => ({
-        ...current,
-        reviewerNote: "",
-        editedRecommendation: "",
+        ...initialReviewForm,
+        reviewerName: current.reviewerName,
       }));
     } catch (error) {
       setReviewError(getErrorMessage(error));
@@ -476,7 +485,12 @@ function App() {
             </button>
           </form>
 
-          <section className="result-region" aria-live="polite" aria-label="Advisory result">
+          <section className="result-region" aria-label="Advisory result">
+            <p className="sr-only" aria-live="polite">
+              {response
+                ? `Advisory ${statusLabel(response.status)} at ${Math.round(response.confidence * 100)} percent confidence.`
+                : ""}
+            </p>
             {!response && !queryError && (
               <div className="empty-state">
                 <span aria-hidden="true">⌁</span>
@@ -524,8 +538,26 @@ function App() {
                   </div>
                   <VerificationList checks={response.verification} />
                 </section>
-                <EvidenceList response={response} />
-                <TraceList response={response} />
+                <section className="panel evidence-panel" aria-labelledby="evidence-heading">
+                  <div className="panel-heading">
+                    <div>
+                      <p className="eyebrow">Grounding</p>
+                      <h3 id="evidence-heading">Seeded evidence</h3>
+                    </div>
+                    <span className="count-pill">{response.evidence.length} records</span>
+                  </div>
+                  <EvidenceList evidence={response.evidence} />
+                </section>
+                <section className="panel trace-panel" aria-labelledby="trace-heading">
+                  <div className="panel-heading">
+                    <div>
+                      <p className="eyebrow">Audit trail</p>
+                      <h3 id="trace-heading">Workflow trace</h3>
+                    </div>
+                    <span className="count-pill">{response.trace.length} stages</span>
+                  </div>
+                  <TraceList trace={response.trace} />
+                </section>
               </>
             )}
           </section>
@@ -588,6 +620,22 @@ function App() {
                   <dd>{formatDate(activeCase.created_at)}</dd>
                 </div>
               </dl>
+              {activeCaseFarmer && (
+                <aside className="case-farmer-context" aria-label="Selected case farmer context">
+                  <div>
+                    <span>Farmer</span>
+                    <strong>{activeCaseFarmer.name} · {activeCaseFarmer.district}</strong>
+                  </div>
+                  <div>
+                    <span>Current crop</span>
+                    <strong>{activeCaseFarmer.crop}</strong>
+                  </div>
+                  <div>
+                    <span>Water budget</span>
+                    <strong>{activeCaseFarmer.waterBudget} mm</strong>
+                  </div>
+                </aside>
+              )}
               <p className="case-reason">{activeCase.reason}</p>
               {activeCase.original_recommendation && (
                 <div className="case-draft">
@@ -604,8 +652,28 @@ function App() {
                 </details>
               )}
 
+              {activeCase.evidence && activeCase.evidence.length > 0 && (
+                <details className="case-details" open>
+                  <summary>Review seeded evidence ({activeCase.evidence.length})</summary>
+                  <EvidenceList evidence={activeCase.evidence} />
+                </details>
+              )}
+
+              {activeCase.trace && activeCase.trace.length > 0 && (
+                <details className="case-details">
+                  <summary>Review workflow trace ({activeCase.trace.length})</summary>
+                  <TraceList trace={activeCase.trace} />
+                </details>
+              )}
+
               {activeCase.status === "pending" ? (
                 <form className="review-form" onSubmit={handleDecision}>
+                  {activeCaseHasHardSafetyFailure && (
+                    <div className="review-callout safety-block-callout" role="alert">
+                      <strong>Hard safety check failed.</strong> This demonstrator permits only rejection
+                      for this case. Start a fresh, safely parameterised request for a revised advisory.
+                    </div>
+                  )}
                   <label>
                     Decision
                     <select
@@ -617,8 +685,12 @@ function App() {
                         }))
                       }
                     >
-                      <option value="approve">Approve draft</option>
-                      <option value="edit_and_approve">Edit and approve</option>
+                      {!activeCaseHasHardSafetyFailure && (
+                        <option value="approve">Approve draft</option>
+                      )}
+                      {!activeCaseHasHardSafetyFailure && (
+                        <option value="edit_and_approve">Edit and approve</option>
+                      )}
                       <option value="reject">Reject draft</option>
                     </select>
                   </label>

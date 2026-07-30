@@ -4,7 +4,17 @@
   "state": "Maharashtra",
   "district": "Yavatmal",
   "preferred_language": "mr",
-  "consent": {"advisory": true, "granted_at": "2026-07-01T09:00:00Z"},
+  "synthetic_data": true,
+  "consent": {
+    "advisory": true,
+    "consent_id": "SYN_CONSENT_MH_001234",
+    "status": "granted",
+    "purpose": "agricultural_advisory",
+    "scopes": ["farmer_profile", "advisory", "advisory_memory"],
+    "granted_at": "2026-07-01T09:00:00Z",
+    "expires_at": "2030-12-31T23:59:59Z",
+    "revoked_at": null
+  },
   "digital_twin": {
     "season": "Kharif",
     "current_crop": "cotton",

@@ -10,10 +10,19 @@ Copy-Item .env.example .env
 docker compose up --build
 ```
 
-The API is available on port `8000`; the optional local Qdrant container is
-available on ports `6333` and `6334`. The current FastAPI workflow uses seed
-JSON rather than Qdrant, so Qdrant is present for the next retrieval
-integration phase and is not evidence of live semantic search.
+The API is available on port `8000`. The current FastAPI workflow uses seed
+JSON rather than Qdrant, so the default Compose route is self-contained and
+does not start a retrieval container.
+
+To include the optional local Qdrant container (ports `6333` and `6334`) for
+future retrieval experiments, run:
+
+```powershell
+docker compose --profile retrieval up --build
+```
+
+Qdrant is present for the next retrieval integration phase and is not evidence
+of live semantic search.
 
 Compose mounts `./var` into the API container so local advisory episodes and
 HITL decisions survive an API-container restart. It contains only synthetic

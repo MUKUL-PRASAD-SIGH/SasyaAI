@@ -9,7 +9,7 @@ This repository starts with a runnable synthetic-data demonstrator. It is delibe
 - FastAPI service with health, advisory, farmer, memory, and HITL queue/decision endpoints.
 - Three synthetic farmers plus crop, pest, and scheme seed knowledge.
 - Intent routing for crop planning, pest diagnosis, and scheme queries.
-- Memory ownership boundary, consent preflight, reflection results, data-driven deterministic safety checks, and a confidence-based HITL route.
+- Memory ownership boundary, typed synthetic-consent preflight with purpose/scope/expiry/revocation checks, reflection results, data-driven deterministic safety checks, and a confidence-based HITL route.
 - Vite/React extension-officer dashboard for reviewing evidence, verification, trace, and pending cases.
 - Docker Compose for the API and optional local Qdrant service.
 - Tests for delivered advice, low-confidence escalation, unsafe-dose blocking, and API errors.
@@ -37,11 +37,15 @@ python -m pytest -q
 python -m ruff check backend tests
 ```
 
-To run the API with the local Qdrant service:
+To run the self-contained API container:
 
 ```powershell
 docker compose up --build
 ```
+
+The current workflow does not query Qdrant. To include the optional local
+Qdrant container for retrieval experiments, use
+`docker compose --profile retrieval up --build`.
 
 ### Extension-officer dashboard
 
@@ -87,7 +91,7 @@ created; they belong to later sandbox, vision, and production-hardening work.
 
 ## Safety and data use
 
-The seed records are synthetic. Do not add real farmer data, credentials, Aadhaar numbers, or production exports to this repository. The service must remain behind consent, deterministic verification, and Human-in-the-Loop gates before it can be used for consequential advice.
+The seed records are synthetic. Do not add real farmer data, credentials, Aadhaar numbers, or production exports to this repository. Before any demonstrator profile or advisory-memory access, a local fixture adapter checks a typed consent receipt and carries source/freshness provenance internally. It is deliberately not a live consent-management integration. A failed deterministic safety check cannot be overridden by approving or editing its HITL case; the local workflow permits rejection and a fresh, safely parameterised request only. The service must remain behind consent, deterministic verification, and Human-in-the-Loop gates before it can be used for consequential advice.
 
 ## Project documentation
 

@@ -1,5 +1,6 @@
 """Public contracts for advisory and review operations."""
 
+from datetime import datetime
 from enum import Enum
 from typing import Literal
 
@@ -62,6 +63,17 @@ class AdvisoryResponse(BaseModel):
 class MemorySearchRequest(BaseModel):
     farmer_id: str = Field(min_length=3, max_length=64)
     query: str = Field(min_length=1, max_length=500)
+
+
+class MemoryEpisode(BaseModel):
+    """A validated local record of an advisory workflow outcome."""
+
+    request_id: str = Field(min_length=1, max_length=100)
+    farmer_id: str = Field(min_length=3, max_length=64)
+    intent: Intent
+    query: str = Field(min_length=3, max_length=1_000)
+    outcome: Literal["delivered", "requires_human_review"]
+    timestamp: datetime
 
 
 class HITLDecisionRequest(BaseModel):

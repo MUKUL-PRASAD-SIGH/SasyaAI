@@ -2,8 +2,9 @@
 
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, status
+from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from app.core.config import get_settings
 from app.models.advisory import (
@@ -18,7 +19,10 @@ from app.services.advisory import (
     ConsentNotGrantedError,
     FarmerNotFoundError,
     HITLCaseNotPendingError,
+    HITLCaseSafetyBlockedError,
 )
+from app.services.consent import ConsentAdapterUnavailableError
+from app.services.memory import RuntimeStateError
 
 
 def create_app(runtime_dir: Path | None = None) -> FastAPI:
@@ -36,6 +40,26 @@ def create_app(runtime_dir: Path | None = None) -> FastAPI:
         allow_headers=["Content-Type"],
     )
     app.state.advisory_service = AdvisoryService(settings=settings, runtime_dir=runtime_dir)
+
+    @app.exception_handler(RuntimeStateError)
+    def runtime_state_error_handler(_: Request, __: RuntimeStateError) -> JSONResponse:
+        return JSONResponse(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            content={
+                "detail": "Local demonstrator state is unavailable; no advisory was delivered."
+            },
+        )
+
+    @app.exception_handler(ConsentAdapterUnavailableError)
+    def consent_adapter_error_handler(
+        _: Request, __: ConsentAdapterUnavailableError
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            content={
+                "detail": "Consent-gated data access is unavailable; no advisory was delivered."
+            },
+        )
 
     def service() -> AdvisoryService:
         return app.state.advisory_service
@@ -100,6 +124,14 @@ def create_app(runtime_dir: Path | None = None) -> FastAPI:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail="This HITL case has already received a decision.",
+            ) from error
+        except HITLCaseSafetyBlockedError as error:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=(
+                    "This case has failed hard safety checks and cannot be approved in the "
+                    "local demonstrator."
+                ),
             ) from error
         if case is None:
             raise HTTPException(

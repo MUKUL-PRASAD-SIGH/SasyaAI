@@ -10,12 +10,10 @@ services:
     volumes:
       # Keeps local demo episodes and review decisions across container restarts.
       - ./var:/app/var
-    depends_on:
-      qdrant:
-        condition: service_started
 
   qdrant:
     image: qdrant/qdrant:v1.9.4
+    profiles: ["retrieval"]
     ports:
       - "6333:6333"
       - "6334:6334"

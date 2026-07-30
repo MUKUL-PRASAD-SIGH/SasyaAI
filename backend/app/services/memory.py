@@ -1,38 +1,125 @@
-"""Seed-data retrieval and local persistence owned by the Memory Agent boundary."""
+"""Validated seed access and safe local persistence behind the Memory boundary."""
 
 from __future__ import annotations
 
+import copy
 import json
+import os
+import tempfile
+from contextlib import contextmanager, suppress
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from threading import RLock
+from typing import Any, Literal
+
+from filelock import FileLock, Timeout
+from pydantic import BaseModel, ValidationError
+
+from app.models.advisory import HITLCase, MemoryEpisode
+from app.models.seed import (
+    CropKnowledgeSeed,
+    FarmerSeed,
+    PestKnowledgeSeed,
+    SchemeKnowledgeSeed,
+)
+
+
+class SeedDataError(RuntimeError):
+    """Raised when checked-in demonstrator data is missing or invalid."""
+
+
+class RuntimeStateError(RuntimeError):
+    """Raised when local demo state cannot be safely read or persisted."""
 
 
 class SeedRepository:
-    """Read-only adapter over checked-in synthetic seed data.
+    """Read-only, validated adapter over checked-in synthetic seed data."""
 
-    This provides the same ownership boundary that Qdrant and PostgreSQL will
-    use later. It is intentionally deterministic for a credential-free demo.
-    """
+    _knowledge_models: dict[str, type[BaseModel]] = {
+        "crops": CropKnowledgeSeed,
+        "pests": PestKnowledgeSeed,
+        "schemes": SchemeKnowledgeSeed,
+    }
 
     def __init__(self, seed_data_dir: Path) -> None:
         self.seed_data_dir = seed_data_dir
+        self._farmers, self._consents = self._load_farmers()
+        self._knowledge = {
+            collection: self._load_knowledge(collection, model)
+            for collection, model in self._knowledge_models.items()
+        }
 
     def _load_json(self, relative_path: str) -> Any:
-        with (self.seed_data_dir / relative_path).open(encoding="utf-8") as file:
-            return json.load(file)
+        path = self.seed_data_dir / relative_path
+        try:
+            with path.open(encoding="utf-8") as file:
+                return json.load(file)
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError) as error:
+            raise SeedDataError(f"Could not load synthetic seed data from {relative_path}.") from error
+
+    @staticmethod
+    def _validate_record(
+        model: type[BaseModel], record: Any, label: str
+    ) -> dict[str, Any]:
+        try:
+            return model.model_validate(record).model_dump(mode="json")
+        except ValidationError as error:
+            raise SeedDataError(f"Invalid {label} seed record.") from error
+
+    def _load_farmers(self) -> tuple[dict[str, dict[str, Any]], dict[str, dict[str, Any]]]:
+        farmers_dir = self.seed_data_dir / "farmers"
+        if not farmers_dir.is_dir():
+            raise SeedDataError("Synthetic farmer seed directory is missing.")
+
+        farmer_paths = sorted(farmers_dir.glob("*.json"))
+        if not farmer_paths:
+            raise SeedDataError("No synthetic farmer seed records were found.")
+
+        farmers: dict[str, dict[str, Any]] = {}
+        consents: dict[str, dict[str, Any]] = {}
+        for path in farmer_paths:
+            relative_path = path.relative_to(self.seed_data_dir).as_posix()
+            farmer = self._validate_record(
+                FarmerSeed,
+                self._load_json(relative_path),
+                f"farmer ({path.name})",
+            )
+            farmer_id = str(farmer["farmer_id"])
+            if farmer_id in farmers:
+                raise SeedDataError(f"Duplicate synthetic farmer ID: {farmer_id}.")
+            farmers[farmer_id] = farmer
+            # Keep a data-minimised index so consent can be checked before profile access.
+            consents[farmer_id] = copy.deepcopy(farmer["consent"])
+        return farmers, consents
+
+    def _load_knowledge(
+        self, collection: str, model: type[BaseModel]
+    ) -> list[dict[str, Any]]:
+        relative_path = f"kb/{collection}.json"
+        records = self._load_json(relative_path)
+        if not isinstance(records, list) or not records:
+            raise SeedDataError(f"Knowledge collection {collection} must contain at least one record.")
+        return [
+            self._validate_record(model, record, f"{collection} ({index})")
+            for index, record in enumerate(records, start=1)
+        ]
 
     def get_farmer(self, farmer_id: str) -> dict[str, Any] | None:
-        for path in sorted((self.seed_data_dir / "farmers").glob("*.json")):
-            farmer = self._load_json(f"farmers/{path.name}")
-            if farmer["farmer_id"] == farmer_id:
-                return farmer
-        return None
+        farmer = self._farmers.get(farmer_id)
+        return copy.deepcopy(farmer) if farmer is not None else None
+
+    def get_consent(self, farmer_id: str) -> dict[str, Any] | None:
+        """Return only the validated synthetic consent fixture for a farmer."""
+
+        consent = self._consents.get(farmer_id)
+        return copy.deepcopy(consent) if consent is not None else None
 
     def list_knowledge(self, collection: str) -> list[dict[str, Any]]:
-        """Return a copy of a seed collection for deterministic filtering."""
-
-        return list(self._load_json(f"kb/{collection}.json"))
+        try:
+            return copy.deepcopy(self._knowledge[collection])
+        except KeyError as error:
+            raise SeedDataError(f"Unknown seed knowledge collection: {collection}.") from error
 
     def search_knowledge(self, collection: str, query: str, limit: int = 3) -> list[dict[str, Any]]:
         records = self.list_knowledge(collection)
@@ -51,33 +138,98 @@ class SeedRepository:
         ]
 
 
-class LocalMemoryStore:
-    """Append-only runtime episode store used only through the Memory boundary."""
+class _JsonListStore:
+    """A same-process locked, atomic JSON-list store for local demo state."""
 
-    def __init__(self, runtime_dir: Path) -> None:
+    def __init__(self, runtime_dir: Path, filename: str) -> None:
         self.runtime_dir = runtime_dir
-        self.path = runtime_dir / "farmer_memory.json"
+        self.path = runtime_dir / filename
+        self._lock = RLock()
+        self._file_lock = FileLock(runtime_dir / f".{filename}.lock", timeout=3)
 
-    def _read(self) -> list[dict[str, Any]]:
+    @contextmanager
+    def _locked_transaction(self):
+        """Serialize local read/modify/write work across threads and processes."""
+
+        with self._lock:
+            try:
+                self.runtime_dir.mkdir(parents=True, exist_ok=True)
+                with self._file_lock:
+                    yield
+            except Timeout as error:
+                raise RuntimeStateError("Local demo state is busy; retry shortly.") from error
+            except OSError as error:
+                raise RuntimeStateError("Local demo state cannot be accessed safely.") from error
+
+    def _read_unlocked(self) -> list[dict[str, Any]]:
         if not self.path.exists():
             return []
-        with self.path.open(encoding="utf-8") as file:
-            return json.load(file)
+        try:
+            with self.path.open(encoding="utf-8") as file:
+                payload = json.load(file)
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError) as error:
+            raise RuntimeStateError("Local demo state cannot be read safely.") from error
 
-    def _write(self, episodes: list[dict[str, Any]]) -> None:
-        self.runtime_dir.mkdir(parents=True, exist_ok=True)
-        with self.path.open("w", encoding="utf-8") as file:
-            json.dump(episodes, file, ensure_ascii=False, indent=2)
+        if not isinstance(payload, list) or any(not isinstance(item, dict) for item in payload):
+            raise RuntimeStateError("Local demo state has an invalid JSON structure.")
+        return payload
+
+    def _write_unlocked(self, records: list[dict[str, Any]]) -> None:
+        temporary_path: Path | None = None
+        try:
+            self.runtime_dir.mkdir(parents=True, exist_ok=True)
+            with tempfile.NamedTemporaryFile(
+                mode="w",
+                encoding="utf-8",
+                dir=self.runtime_dir,
+                prefix=f".{self.path.name}.",
+                suffix=".tmp",
+                delete=False,
+            ) as temporary_file:
+                temporary_path = Path(temporary_file.name)
+                json.dump(records, temporary_file, ensure_ascii=False, indent=2)
+                temporary_file.flush()
+                os.fsync(temporary_file.fileno())
+            os.replace(temporary_path, self.path)
+            temporary_path = None
+        except (OSError, TypeError, ValueError) as error:
+            raise RuntimeStateError("Local demo state cannot be persisted safely.") from error
+        finally:
+            if temporary_path is not None:
+                with suppress(OSError):
+                    temporary_path.unlink(missing_ok=True)
+
+
+class LocalMemoryStore(_JsonListStore):
+    """Append-only runtime episode store accessed only through the Memory boundary."""
+
+    def __init__(self, runtime_dir: Path) -> None:
+        super().__init__(runtime_dir, "farmer_memory.json")
+
+    @staticmethod
+    def _validate_episode(episode: dict[str, Any]) -> dict[str, Any]:
+        try:
+            return MemoryEpisode.model_validate(episode).model_dump(mode="json")
+        except ValidationError as error:
+            raise RuntimeStateError("Local advisory memory has an invalid episode.") from error
+
+    def _episodes_unlocked(self) -> list[dict[str, Any]]:
+        return [self._validate_episode(episode) for episode in self._read_unlocked()]
 
     def append(self, episode: dict[str, Any]) -> None:
-        episodes = self._read()
-        episodes.append(episode)
-        self._write(episodes)
+        validated_episode = self._validate_episode(episode)
+        with self._locked_transaction():
+            episodes = self._episodes_unlocked()
+            episodes.append(validated_episode)
+            self._write_unlocked(episodes)
 
     def search(self, farmer_id: str, query: str) -> list[dict[str, Any]]:
         query_terms = {term.lower() for term in query.split() if len(term) > 2}
+        with self._locked_transaction():
+            episodes = self._episodes_unlocked()
+
         matches = []
-        for episode in self._read():
+        for episode in episodes:
             if episode["farmer_id"] != farmer_id:
                 continue
             text = " ".join(str(value) for value in episode.values()).lower()
@@ -87,51 +239,62 @@ class LocalMemoryStore:
         return sorted(matches, key=lambda item: item["score"], reverse=True)[:5]
 
 
-class HITLQueue:
-    """Local queue that can later be replaced by a durable review service."""
+@dataclass(frozen=True)
+class HITLDecisionOutcome:
+    state: Literal["updated", "not_found", "not_pending", "safety_blocked"]
+    case: dict[str, Any] | None = None
+    blocking_checks: tuple[str, ...] = ()
+
+
+class HITLQueue(_JsonListStore):
+    """Local review queue with atomic in-process decision transitions."""
 
     def __init__(self, runtime_dir: Path) -> None:
-        self.runtime_dir = runtime_dir
-        self.path = runtime_dir / "hitl_queue.json"
+        super().__init__(runtime_dir, "hitl_queue.json")
 
-    def _read(self) -> list[dict[str, Any]]:
-        if not self.path.exists():
-            return []
-        with self.path.open(encoding="utf-8") as file:
-            cases = json.load(file)
-        # Preserve compatibility with cases written by the first demo release.
-        return [
-            {
-                **case,
-                "original_recommendation": case.get(
-                    "original_recommendation", case.get("recommendation")
-                ),
-                "decision_history": case.get("decision_history", []),
-            }
-            for case in cases
-        ]
+    @staticmethod
+    def _normalise_case(case: dict[str, Any]) -> dict[str, Any]:
+        legacy_case = {
+            **case,
+            "original_recommendation": case.get(
+                "original_recommendation", case.get("recommendation")
+            ),
+            "decision_history": case.get("decision_history", []),
+        }
+        try:
+            return HITLCase.model_validate(legacy_case).model_dump(mode="json")
+        except ValidationError as error:
+            raise RuntimeStateError("Local HITL queue has an invalid case.") from error
 
-    def _write(self, cases: list[dict[str, Any]]) -> None:
-        self.runtime_dir.mkdir(parents=True, exist_ok=True)
-        with self.path.open("w", encoding="utf-8") as file:
-            json.dump(cases, file, ensure_ascii=False, indent=2)
+    def _cases_unlocked(self) -> list[dict[str, Any]]:
+        cases = [self._normalise_case(case) for case in self._read_unlocked()]
+        case_ids = [str(case["case_id"]) for case in cases]
+        if len(case_ids) != len(set(case_ids)):
+            raise RuntimeStateError("Local HITL queue contains duplicate case IDs.")
+        return cases
 
     def enqueue(self, case: dict[str, Any]) -> None:
-        cases = self._read()
-        cases.append(case)
-        self._write(cases)
+        validated_case = self._normalise_case(case)
+        with self._locked_transaction():
+            cases = self._cases_unlocked()
+            if any(existing["case_id"] == validated_case["case_id"] for existing in cases):
+                raise RuntimeStateError("A local HITL case already uses this ID.")
+            cases.append(validated_case)
+            self._write_unlocked(cases)
 
     def get(self, case_id: str) -> dict[str, Any] | None:
-        return next((case for case in self._read() if case["case_id"] == case_id), None)
+        with self._locked_transaction():
+            return next(
+                (copy.deepcopy(case) for case in self._cases_unlocked() if case["case_id"] == case_id),
+                None,
+            )
 
     def list(self) -> list[dict[str, Any]]:
         """Return newest review cases first without exposing a write path."""
 
-        return sorted(
-            self._read(),
-            key=lambda case: str(case.get("created_at", "")),
-            reverse=True,
-        )
+        with self._locked_transaction():
+            cases = self._cases_unlocked()
+        return sorted(cases, key=lambda case: str(case.get("created_at", "")), reverse=True)
 
     def decide(
         self,
@@ -140,25 +303,42 @@ class HITLQueue:
         note: str,
         reviewer_name: str,
         edited_recommendation: str | None,
-    ) -> dict[str, Any] | None:
-        cases = self._read()
-        for case in cases:
-            if case["case_id"] != case_id:
-                continue
-            if case["status"] != "pending":
-                return None
+    ) -> HITLDecisionOutcome:
+        with self._locked_transaction():
+            cases = self._cases_unlocked()
+            for index, case in enumerate(cases):
+                if case["case_id"] != case_id:
+                    continue
+                if case["status"] != "pending":
+                    return HITLDecisionOutcome(state="not_pending")
+                blocking_checks = tuple(
+                    str(check["name"])
+                    for check in case["verification"]
+                    if check["status"] == "fail"
+                )
+                if blocking_checks and decision != "reject":
+                    return HITLDecisionOutcome(
+                        state="safety_blocked",
+                        case=copy.deepcopy(case),
+                        blocking_checks=blocking_checks,
+                    )
 
-            audit_event = {
-                "decision": decision,
-                "reviewer_name": reviewer_name,
-                "reviewer_note": note,
-                "edited_recommendation": edited_recommendation,
-                "decided_at": datetime.now(timezone.utc).isoformat(),
-            }
-            case["status"] = "rejected" if decision == "reject" else "approved"
-            case["reviewer_note"] = note
-            case["edited_recommendation"] = edited_recommendation
-            case.setdefault("decision_history", []).append(audit_event)
-            self._write(cases)
-            return case
-        return None
+                audit_event = {
+                    "decision": decision,
+                    "reviewer_name": reviewer_name,
+                    "reviewer_note": note,
+                    "edited_recommendation": edited_recommendation,
+                    "decided_at": datetime.now(timezone.utc).isoformat(),
+                }
+                updated_case = {
+                    **case,
+                    "status": "rejected" if decision == "reject" else "approved",
+                    "reviewer_note": note,
+                    "edited_recommendation": edited_recommendation,
+                    "decision_history": [*case["decision_history"], audit_event],
+                }
+                cases[index] = self._normalise_case(updated_case)
+                self._write_unlocked(cases)
+                return HITLDecisionOutcome(state="updated", case=copy.deepcopy(cases[index]))
+
+        return HITLDecisionOutcome(state="not_found")
