@@ -33,7 +33,13 @@ The demonstrator intentionally does **not** claim production readiness. It uses 
 
 ### 2.2 Current repository baseline
 
-The repository currently contains the planning documentation, a Qdrant Docker service, environment-variable template, dependency list, and initial Python package/configuration files. The FastAPI entry point, seeded data, Qdrant initialization, tools, agent definitions, API routes, tests, and HITL user interface still need to be implemented.
+The repository now includes a runnable local thin slice: a FastAPI service,
+synthetic farmer/knowledge seed data, typed advisory contracts, deterministic
+workflow and verifier, local memory/HITL queue, API tests, Docker Compose, and
+a Vite/React extension-officer dashboard. This is a credential-free,
+synthetic-data demonstrator through the API and officer-review portions of the
+sprint. Qdrant retrieval, Lyzr/ADK execution, live tools, production identity,
+and durable production stores remain deliberately deferred.
 
 ### 2.3 Non-negotiable system rules
 

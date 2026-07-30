@@ -1,0 +1,38 @@
+[
+  {
+    "title": "Soybean suitability for moderate-fertility, water-constrained Kharif farms",
+    "crop": "soybean",
+    "region": "Maharashtra",
+    "soil_type": "black cotton soil",
+    "water_need_mm": 240,
+    "estimated_input_cost_inr": 47000,
+    "guidance": "Use certified seed, maintain drainage, and keep irrigation within the farm water budget."
+  },
+  {
+    "title": "Cotton water and market risk profile",
+    "crop": "cotton",
+    "region": "Maharashtra",
+    "soil_type": "black cotton soil",
+    "water_need_mm": 340,
+    "estimated_input_cost_inr": 65000,
+    "guidance": "Consider higher water use and local price volatility before expanding area."
+  },
+  {
+    "title": "Millet resilience guidance",
+    "crop": "millet",
+    "region": "Karnataka",
+    "soil_type": "red loam",
+    "water_need_mm": 180,
+    "estimated_input_cost_inr": 36000,
+    "guidance": "Millets are suitable for lower water availability when local market access is confirmed."
+  },
+  {
+    "title": "Paddy suitability for irrigated Kharif farms",
+    "crop": "paddy",
+    "region": "Telangana",
+    "soil_type": "alluvial loam",
+    "water_need_mm": 320,
+    "estimated_input_cost_inr": 70000,
+    "guidance": "Retain drainage and irrigation records, and confirm local weather conditions before transplanting."
+  }
+]

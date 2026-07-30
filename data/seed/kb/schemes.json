@@ -1,0 +1,16 @@
+[
+  {
+    "title": "PM-KISAN demo eligibility record",
+    "name": "PM-KISAN",
+    "state": "all",
+    "deadline": "Confirm against the official portal",
+    "guidance": "Use the authorised government portal to verify current eligibility and payment status."
+  },
+  {
+    "title": "PMFBY demo eligibility record",
+    "name": "PMFBY",
+    "state": "Maharashtra",
+    "deadline": "Confirm seasonal deadline",
+    "guidance": "Confirm notified crop, season, insurer, and application deadline before enrolment."
+  }
+]

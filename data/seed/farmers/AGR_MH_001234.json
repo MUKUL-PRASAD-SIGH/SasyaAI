@@ -1,0 +1,16 @@
+{
+  "farmer_id": "AGR_MH_001234",
+  "name": "Asha Patil",
+  "state": "Maharashtra",
+  "district": "Yavatmal",
+  "preferred_language": "mr",
+  "consent": {"advisory": true, "granted_at": "2026-07-01T09:00:00Z"},
+  "digital_twin": {
+    "season": "Kharif",
+    "current_crop": "cotton",
+    "soil_fertility": "moderate",
+    "water_budget_mm": 280,
+    "budget_inr": 60000,
+    "eligible_schemes": ["PM-KISAN", "PMFBY"]
+  }
+}

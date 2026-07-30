@@ -76,7 +76,9 @@ env/
 *.gguf
 *.safetensors
 *.bin
-models/
+# This is intentionally rooted: application modules such as
+# backend/app/models/ are source code and must remain trackable.
+/models/
 checkpoints/
 runs/
 wandb/
@@ -100,7 +102,9 @@ tensorboard_logs/
 #    ├── embeddings/         → FAISS vector indices
 #    └── cache/              → Redis dump files, temp processing
 # ─────────────────────────────────────────────────────────────────
-data/
+data/*
+!data/seed/
+!data/seed/**
 *.csv
 *.tsv
 *.parquet

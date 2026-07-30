@@ -1,160 +1,106 @@
-# PS 5: AI-Powered Personalized Agriculture Services Using AgriStack
+# SasyaAI
 
-> AI Hackathon: Leveraging Emerging Technologies for Smarter Farming Systems
->
-> Organized by  Department of Agriculture & Farmers Welfare | MoAFW | Government of India
->
-> ✅ Selected for the next round
+SasyaAI is a safety-gated agricultural-advisory platform for Indian farmers. It combines a farmer digital twin, grounded knowledge retrieval, specialised agent workflows, deterministic verification, and human review to produce practical, explainable guidance.
 
-# 🌾 SasyaAI — Intelligent Agriculture Advisory Platform
+This repository starts with a runnable synthetic-data demonstrator. It is deliberately credential-free and deterministic so the team can validate the workflow before connecting real farmer data, LLMs, or government APIs.
 
-**SasyaAI delivers hyperlocal, explainable agricultural recommendations by combining AgriStack data, soil health metrics, crop history, weather intelligence, and scheme eligibility into a unified decision support system.**
+## What works today
 
----
+- FastAPI service with health, advisory, farmer, memory, and HITL queue/decision endpoints.
+- Three synthetic farmers plus crop, pest, and scheme seed knowledge.
+- Intent routing for crop planning, pest diagnosis, and scheme queries.
+- Memory ownership boundary, consent preflight, reflection results, data-driven deterministic safety checks, and a confidence-based HITL route.
+- Vite/React extension-officer dashboard for reviewing evidence, verification, trace, and pending cases.
+- Docker Compose for the API and optional local Qdrant service.
+- Tests for delivered advice, low-confidence escalation, unsafe-dose blocking, and API errors.
 
-## Overview
+## What is planned next
 
-SasyaAI is a project developed for the AI Hackathon: Leveraging Emerging Technologies for Smarter Farming Systems.
-It uses the AgriStack ecosystem to create personalized agriculture services for farmers, including credit and insurance profiling, nutrient and irrigation guidance, production forecasting, and scheme benefit recommendations.
+The current service is a local workflow, not a production advisory system. Qdrant retrieval, Lyzr/ADK execution, AgriStack Sandbox adapters, PostgreSQL/PostGIS, real vision models, and the farmer/mobile experience are sequenced in [Docs/ROADMAP.md](Docs/ROADMAP.md).
 
-The platform transforms sparse and fragmented agricultural data into actionable insights for smallholder farmers, cooperatives, and extension workers.
+## Quick start
 
----
+Prerequisites: Python 3.10+ and Docker Desktop for the container route. Node.js 20+ is needed only for the frontend scaffold.
 
-## Problem Statement
-
-Indian agriculture still struggles with disconnected farmer records, generic advisory outputs, and weak linkage between scheme eligibility and field reality.
-SasyaAI addresses these issues by:
-- Using verified farmer and land data from AgriStack
-- Creating personalized recommendations for crop inputs, irrigation, and risk mitigation
-- Predicting production at local farm level using historical and near-real-time data
-- Matching farmers to government schemes and benefits through registry-linked analytics
-
-This project is built specifically for:
-- PS 5: AI-Powered Personalized Agriculture Services Using AgriStack
-- AI Hackathon: Leveraging Emerging Technologies for Smarter Farming Systems
-
----
-
-## Key Capabilities
-
-- Personalized credit, insurance, and risk profiling based on verified farmer, land, and crop data
-- AI-driven fertilizer, water, and input recommendations tailored to plot-level soil and weather conditions
-- Production forecasting and harvest planning using historical crop records and live agricultural signals
-- Automated scheme matching and benefit recommendation for eligible farmers
-- Explainable output designed for farmers, extension agents, and policymakers
-
----
-
-## System Architecture
-
-SasyaAI is built as a modular decision support system with the following logical components:
-
-1. Data Integration
-   - Farmer Registry and land records from AgriStack
-   - Crop surveys and digital crop registration
-   - Soil Health Card data and nutrient analysis
-   - Weather, precipitation, and dry spell information
-2. Reasoning Engine
-   - Multi-agent inference for planning, geospatial assessment, and monitoring
-   - Validation layer for eligibility and risk checks
-3. Recommendation Layer
-   - Crop/input advisory
-   - Harvest planning and yield forecasting
-   - Scheme and subsidy recommendations
-4. User Interaction
-   - Natural language interface for farmer queries
-   - Dashboard views for extension workers and administrators
-
----
-
-## Technology Stack
-
-- Backend: Python, FastAPI, Celery, Redis
-- Data Storage: PostgreSQL, PostGIS, MongoDB
-- Messaging: Apache Kafka
-- AI/ML: LLM reasoning, tree-based models, image vision models, time-series forecasting
-- Frontend: React, optional mobile interface
-- Infrastructure: Docker, Kubernetes-compatible deployment
-
----
-
-## Data Platform and Sandbox
-
-SasyaAI is designed to consume data from the AgriStack Sandbox — a secure, controlled environment for experimenting with AgriStack APIs using anonymized datasets and realistic simulations.
-The sandbox enables seamless integration, controlled experimentation, and rapid prototyping for agricultural services.
-
-## Data Sources and Inputs
-
-SasyaAI leverages the following agricultural datasets and signals:
-- AgriStack Farmer Registry and land record metadata
-- Agri Stack Sandbox datasets such as Telangana district/mandal geospatial shapefiles, soil moisture time series, and pincode boundary geojson
-- Digital crop surveys and crop registry history
-- Soil Health Card profiles and soil nutrient data
-- Precipitation, weather, and dry spell information
-- Scheme eligibility data for PM-KISAN, input subsidies, and insurance programs
-- Market price signals and local supply chain indicators
-- Kisan Call Centre transcripts and farmer query logs for question-answer modeling
-
----
-
-## Project Use Cases
-
-- Intelligent credit and insurance profiling for farmers
-- Precision farm input recommendations using soil + weather data
-- Localized production forecasting and harvest planning
-- Scheme and benefit recommendation using registry-linked analytics
-
----
-
-## How to Use
-
-1. Clone the repository.
-2. Install required dependencies.
-3. Load AgriStack-aligned farmer, soil, crop, and weather datasets.
-4. Start the backend services.
-5. Submit farmer queries or field data and evaluate the generated recommendations.
-
-Example commands:
-
-```bash
-git clone https://github.com/your-org/SasyaAI.git
-cd SasyaAI
-pip install -r requirements.txt
-python -m sasyaai.main
+```powershell
+Copy-Item .env.example .env
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install -r requirements.txt
+python -m uvicorn app.main:app --app-dir backend --reload
 ```
 
----
+The API is available at `http://127.0.0.1:8000`; interactive documentation is at `/docs`.
 
-## Deployment Notes
+```powershell
+python -m pytest -q
+python -m ruff check backend tests
+```
 
-SasyaAI is designed for cloud-ready deployment with containerized services.
-Key deployment considerations include:
-- Secure storage of farmer PII and land records
-- Scalable data ingestion for weather and remote sensing feeds
-- Role-based access for extension agents and policymakers
+To run the API with the local Qdrant service:
 
----
+```powershell
+docker compose up --build
+```
 
-## Security and Data Privacy
+### Extension-officer dashboard
 
-- Farmer identity and personal information are treated as sensitive data
-- Access controls are enforced for system users
-- Outputs are designed to be explainable and auditable for responsible decision-making
+Run the API first, then start the separate local dashboard in another terminal:
 
----
+```powershell
+Set-Location frontend
+Copy-Item .env.example .env
+npm install
+npm run dev
+```
 
-## Team
+Open `http://127.0.0.1:5173`. The dashboard defaults to the local API at
+`http://127.0.0.1:8000`; change `VITE_API_BASE_URL` in `frontend/.env` only when
+using a different endpoint. It deliberately labels review-pending advice as a
+draft and records an append-only demo decision history for each case.
 
-This project is targeted at an AI Hackathon audience and is intended as a prototype for personalized agriculture services using AgriStack.
+### Example request
 
----
+```powershell
+$body = @{
+  farmer_id = "AGR_MH_001234"
+  query = "Should I switch from cotton to soybean?"
+  language = "mr"
+} | ConvertTo-Json
 
-## License
+Invoke-RestMethod -Method Post -Uri http://127.0.0.1:8000/api/v1/query `
+  -ContentType "application/json" -Body $body
+```
 
-MIT License
+## Repository layout
 
----
+```text
+backend/        FastAPI application, contracts, workflow, and adapters
+data/seed/      Checked-in synthetic demo farmers and knowledge bases
+Docs/           Product, architecture, API, execution, security, and testing docs
+frontend/       Vite/React extension-officer dashboard
+tests/          API and workflow regression tests
+```
 
-*Project: PS 5 – AI-Powered Personalized Agriculture Services Using AgriStack*
-*Hackathon: AI Hackathon: Leveraging Emerging Technologies for Smarter Farming Systems*
+The planned `infra/`, `ml/`, and `scripts/` areas are intentionally not yet
+created; they belong to later sandbox, vision, and production-hardening work.
+
+## Safety and data use
+
+The seed records are synthetic. Do not add real farmer data, credentials, Aadhaar numbers, or production exports to this repository. The service must remain behind consent, deterministic verification, and Human-in-the-Loop gates before it can be used for consequential advice.
+
+## Project documentation
+
+- [Master Plan](Docs/MASTER_PLAN.md)
+- [Architecture](Docs/ARCHITECTURE.md)
+- [Requirements](Docs/REQUIREMENTS.md)
+- [Execution Roadmap](Docs/ROADMAP.md)
+- [API Reference](Docs/API.md)
+- [Testing Strategy](Docs/TESTING.md)
+- [Deployment Guide](Docs/DEPLOYMENT.md)
+- [Security and Privacy](Docs/SECURITY.md)
+- [Development Guide](Docs/DEVELOPMENT.md)
+
+## Contributing
+
+Read [CONTRIBUTING.md](CONTRIBUTING.md) before opening a change. Contributions that affect recommendations, safety rules, data access, or consent flows require domain and security review.

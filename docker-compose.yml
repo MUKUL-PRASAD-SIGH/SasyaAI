@@ -1,4 +1,19 @@
 services:
+  api:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    env_file:
+      - .env
+    ports:
+      - "8000:8000"
+    volumes:
+      # Keeps local demo episodes and review decisions across container restarts.
+      - ./var:/app/var
+    depends_on:
+      qdrant:
+        condition: service_started
+
   qdrant:
     image: qdrant/qdrant:v1.9.4
     ports:

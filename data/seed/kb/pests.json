@@ -1,0 +1,18 @@
+[
+  {
+    "title": "Cotton aphid integrated-pest-management protocol",
+    "name": "aphid",
+    "crop": "cotton",
+    "region": "Maharashtra",
+    "max_dose_ml_per_l": 2,
+    "guidance": "Confirm the pest from a clear image and use only a current, approved label protocol."
+  },
+  {
+    "title": "Rice leaf folder observation guide",
+    "name": "leaf folder",
+    "crop": "paddy",
+    "region": "Telangana",
+    "max_dose_ml_per_l": 2,
+    "guidance": "Inspect folded leaves and escalate uncertain observations to an extension officer."
+  }
+]

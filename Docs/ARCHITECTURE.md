@@ -1,344 +1,148 @@
-# 🏗️ ARCHITECTURE — SasyaAI
+# SasyaAI Architecture
 
-> Complete technical blueprint: system design, tech stack, and hardware specifications.
+## 1. Architecture principle
 
----
+SasyaAI has two deliberately separate shapes:
 
-## 1. High-Level Architecture
+- **Demonstrator:** a deterministic FastAPI workflow backed by checked-in synthetic data. It proves contracts, decision flow, verification, memory ownership, and HITL without claiming live-data or model capability.
+- **Production platform:** independently deployable agent, data, and delivery components connected to consent-gated government and earth-observation sources.
 
-```
-╔══════════════════════════════════════════════════════════════════╗
-║                        PRESENTATION LAYER                        ║
-║  ┌─────────────┐  ┌──────────────┐  ┌───────────────────────┐  ║
-║  │ Mobile App  │  │  Web Portal  │  │  IVR / Voice (USSD)   │  ║
-║  │ (React Nat) │  │  (React.js)  │  │  (Vernacular + ASR)   │  ║
-║  └──────┬──────┘  └──────┬───────┘  └───────────┬───────────┘  ║
-╚═════════╪════════════════╪═══════════════════════╪══════════════╝
-          │                │                       │
-          └────────────────▼───────────────────────┘
-                           │ HTTPS / WebSocket
-╔══════════════════════════▼═══════════════════════════════════════╗
-║                        API GATEWAY LAYER                         ║
-║  ┌──────────────────────────────────────────────────────────┐   ║
-║  │  Kong API Gateway | Auth (JWT + Aadhaar OTP) | Rate Limit│   ║
-║  └────────────────────────────┬─────────────────────────────┘   ║
-╚═══════════════════════════════╪══════════════════════════════════╝
-                                │
-╔═══════════════════════════════▼══════════════════════════════════╗
-║                     ORCHESTRATION LAYER                          ║
-║  ┌────────────────────────────────────────────────────────┐     ║
-║  │              ORCHESTRATOR AGENT (LLM Core)             │     ║
-║  │   Task Decomposition | Agent Routing | Context Manager  │     ║
-║  └────┬──────────────┬──────────────┬────────────────┬────┘     ║
-║       │              │              │                │           ║
-║  ┌────▼───┐    ┌─────▼────┐   ┌────▼────┐    ┌─────▼─────┐    ║
-║  │PLANNING│    │  VISION  │   │  GEO-   │    │MONITORING │    ║
-║  │ AGENT  │    │  AGENT   │   │SPATIAL  │    │  AGENT    │    ║
-║  │        │    │          │   │ AGENT   │    │           │    ║
-║  │FastAPI │    │ FastAPI  │   │FastAPI  │    │ Celery +  │    ║
-║  │+ Celery│    │ + GPU    │   │+PostGIS │    │ Kafka     │    ║
-║  └────┬───┘    └─────┬────┘   └────┬────┘    └─────┬─────┘    ║
-╚═══════╪══════════════╪═════════════╪════════════════╪══════════╝
-        │              │             │                │
-╔═══════▼══════════════▼═════════════▼════════════════▼══════════╗
-║                        DATA LAYER                                ║
-║  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌────────────────────┐║
-║  │PostgreSQL│ │ MongoDB  │ │  Redis   │ │  Apache Kafka      │║
-║  │+PostGIS  │ │(doc store│ │ (cache + │ │  (event streaming) │║
-║  │(spatial) │ │+vectors) │ │  queue)  │ │                    │║
-║  └──────────┘ └──────────┘ └──────────┘ └────────────────────┘║
-║  ┌──────────────────────────────────────────────────────────┐  ║
-║  │                   DATA LAKE (S3 / Azure Blob)            │  ║
-║  │  Satellite imagery | NPSS images | Weather archives      │  ║
-║  └──────────────────────────────────────────────────────────┘  ║
-╚═══════════════════════════════════════════════════════════════════╝
-        │                                        │
-╔═══════▼════════════════════════════════════════▼════════════════╗
-║                    EXTERNAL DATA SOURCES                         ║
-║  AgriStack API | NPSS | KrishiDSS | IMD | eNAM | CGWB | ISRO   ║
-╚══════════════════════════════════════════════════════════════════╝
+The demonstrator is an architectural thin slice of the production target, not a mock that bypasses safety controls.
+
+## 2. Logical system view
+
+```mermaid
+flowchart LR
+    Farmer[Farmer: voice, text, photo] --> Edge[Mobile, web, IVR]
+    Officer[Extension officer] --> Dashboard[Review dashboard]
+    Edge --> Gateway[API gateway and consent gate]
+    Gateway --> Orchestrator[Orchestrator]
+    Orchestrator --> Planner[Planner]
+    Planner --> Crop[Planning]
+    Planner --> Vision[Vision]
+    Planner --> Geo[Geospatial]
+    Planner --> Market[Market]
+    Crop --> Memory[Memory Agent]
+    Vision --> Memory
+    Geo --> Memory
+    Market --> Memory
+    Memory --> Reflection[Reflection]
+    Reflection --> Verifier[Deterministic verifier]
+    Verifier -->|pass| XAI[XAI and delivery]
+    Verifier -->|fail or low confidence| Dashboard
+    Memory <--> Twin[(Digital twin)]
+    Memory <--> Knowledge[(Qdrant knowledge and episodes)]
+    Gateway <--> Sources[AgriStack, IMD, eNAM, Bhuvan, schemes]
 ```
 
----
+## 3. Demonstrator components
 
-## 2. Digital Twin Data Model
-
-```
-FarmerTwin {
-  identity: {
-    farmerId: String        // AgriStack unique ID
-    aadhaarLinked: Boolean
-    location: GeoPoint      // Village centroid
-    landParcels: [Parcel]   // Bhuvan/DILRMP linked
-  }
-  agronomyProfile: {
-    soilHealthCards: [SHC]  // Historical + latest
-    cropHistory: [Season]   // 5-year rolling
-    irrigationSource: Enum  // Canal/borewell/rain-fed
-    farmEquipment: [Item]
-  }
-  financialProfile: {
-    schemeEligibility: [Scheme]
-    creditScore: Float
-    marketLinkages: [FPO, APMC]
-  }
-  environmentalState: {
-    ndviTimeSeries: [Float]
-    currentWeather: WeatherObject
-    soilMoisture: Float
-    pestRiskScore: Float     // 0-1, updated daily
-  }
-  recommendations: {
-    active: [Recommendation]
-    history: [Recommendation]
-    verificationStatus: Enum
-  }
-}
-```
-
----
-
-## 3. Agent Communication Protocol
-
-Agents communicate via **structured JSON messages** on Kafka topics:
-
-```json
-{
-  "message_id": "uuid",
-  "source_agent": "planning_agent",
-  "target_agent": "monitoring_agent",
-  "farmer_id": "AGR_MH_001234",
-  "payload_type": "crop_recommendation",
-  "payload": {
-    "recommended_crop": "Soybean",
-    "confidence": 0.87,
-    "reasoning_graph_id": "rg_001234",
-    "constraints_applied": ["water_budget", "scheme_pm_fasal_bima"],
-    "timestamp": "2025-06-01T10:30:00Z"
-  },
-  "requires_verification": true
-}
-```
-
----
-
-## 4. Verification & Monitoring Loop
-
-```
-     ┌─────────────────────────────────────┐
-     │         AGENT OUTPUT                 │
-     └─────────────────┬───────────────────┘
-                       │
-              ┌────────▼────────┐
-              │  CONSTRAINT     │
-              │  VALIDATOR      │
-              │  • Water budget │
-              │  • Scheme rules │
-              │  • Risk limits  │
-              └────────┬────────┘
-                       │
-           ┌───────────┴───────────┐
-           │                       │
-     ✅ PASS                  ❌ FAIL
-           │                       │
-    ┌──────▼──────┐        ┌───────▼───────┐
-    │  DELIVERY   │        │  RE-PLANNING  │
-    │  ENGINE     │        │  TRIGGER      │
-    │  NL render  │        │  Adjust params│
-    │  Push notify│        │  Re-run agent │
-    └─────────────┘        └───────────────┘
-```
-
----
-
-## 5. Geospatial Pipeline
-
-```
-Raw Satellite (Sentinel-2/ResourceSat) → ISRO Bhuvan GeoServer
-    → Preprocessing (atmospheric correction, cloud masking, band compositing)
-    → Feature Extraction (NDVI, NDWI, LSWI, EVI)
-    → KrishiDSS Layer (soil texture, drainage class, AWC)
-    → Geospatial Agent (PostGIS + GDAL)
-```
-
----
-
-## 6. Vision Agent Pipeline
-
-```
-Farmer Photo / Drone Capture
-    → Image Validation (quality + size)
-    → YOLOv8 Inference (NPSS fine-tuned) + Few-shot CNN
-    → Severity Grading (0-5 scale + spread prediction)
-    → Treatment Engine (approved input DB, dosage calc, cost estimate)
-```
-
----
-
-## 7. Tech Stack
-
-### AI / Machine Learning
-
-| Component | Technology | Purpose |
+| Component | Current implementation | Production replacement or extension |
 |---|---|---|
-| Orchestrator LLM | Gemini 1.5 Pro / GPT-4o | NLU, agent orchestration, XAI |
-| Local/Edge LLM | Llama 3.2 (quantized, GGUF) | Offline advisory inference |
-| Computer Vision | YOLOv8 (Ultralytics) | Pest/disease object detection |
-| Image Classification | EfficientNet-B4 | Crop disease severity grading |
-| Time Series | LSTM + Temporal Fusion Transformer | Yield prediction, weather modeling |
-| Tabular ML | XGBoost + LightGBM | Scheme eligibility, soil prediction |
-| NLP/ASR | OpenAI Whisper (multilingual) | Voice-to-text in 10+ languages |
-| TTS | Coqui TTS / Azure Speech | Text-to-speech for IVR |
-| RAG | sentence-transformers + FAISS | Crop knowledge retrieval |
-| Optimization | Google OR-Tools | Constraint-aware crop planning |
-| Explainability | SHAP + reasoning graph engine | Transparent decisions |
+| API | `backend/app/main.py` FastAPI routes | Gateway, OAuth2/JWT, rate limiting, audit middleware |
+| Orchestration | Deterministic `AdvisoryService` | Lyzr SuperFlow and/or typed Google ADK graph |
+| Agent tools | Seed JSON and predictable context | AgriStack, IMD, eNAM, Bhuvan, CGWB, scheme, and ML adapters |
+| Knowledge retrieval | Lexical ranking over seed JSON | Qdrant hybrid retrieval with payload filters and embedding lifecycle |
+| Digital twin | Synthetic JSON profile | Versioned PostgreSQL/PostGIS state, encrypted sensitive fields |
+| Episodic memory | Runtime JSON under ignored `var/` | Qdrant `farmer_memory`, retention and export/deletion controls |
+| Verification | Deterministic demo water, cost, weather, scheme, and dose checks | Versioned rules engine, authoritative data freshness and audit evidence |
+| HITL | Runtime JSON review queue | Authenticated extension-officer dashboard and durable workflow queue |
 
-### Backend
+## 4. Mandatory request flow
 
-| Component | Technology |
-|---|---|
-| API Framework | FastAPI (Python 3.11) |
-| Task Queue | Celery + Redis |
-| Event Streaming | Apache Kafka |
-| Service Mesh | Istio |
-| API Gateway | Kong Gateway |
-| Auth | OAuth2 + JWT + Aadhaar e-KYC |
-| Search | Elasticsearch |
+```mermaid
+sequenceDiagram
+    participant U as Farmer or officer
+    participant A as API
+    participant O as Orchestrator
+    participant M as Memory Agent
+    participant V as Verifier
+    participant H as HITL queue
 
-### Databases
+    U->>A: Query + farmer ID
+    A->>A: Authenticate and verify consent
+    A->>O: Classify intent and build task graph
+    O->>M: Read twin and retrieve context
+    M-->>O: Filtered knowledge and episode context
+    O->>O: Run specialist tasks and draft advice
+    O->>O: Reflection for relevance, units, and clarity
+    O->>V: Apply deterministic constraints
+    alt pass and confidence >= 0.70
+        V-->>A: Verified response and reasoning trace
+        A-->>U: Explainable advisory
+        A->>M: Append advisory episode
+    else failure or low confidence
+        V->>H: Queue trace, evidence, and draft
+        H-->>U: Review pending status
+    end
+```
 
-| Database | Use Case | Technology |
-|---|---|---|
-| Primary Store | Farmer digital twin, recommendations | PostgreSQL 15 + PostGIS 3.3 |
-| Document Store | Unstructured advisory, logs | MongoDB Atlas |
-| Cache | Session state, hot profiles | Redis 7.2 |
-| Vector DB | RAG embeddings | Pgvector (PostgreSQL extension) |
-| Data Lake | Satellite imagery, archives | AWS S3 / Azure Blob |
-| Data Warehouse | Analytics, A/B testing | Apache Parquet + DuckDB |
+## 5. Data ownership and boundaries
 
-### Frontend / Client
+Only the Memory Agent boundary may persist twin state or advisory episodes. Other agents are stateless and return typed outputs. This makes retries safe and prevents a failed draft from changing farmer state.
 
-| Platform | Technology |
-|---|---|
-| Mobile (farmer) | React Native + Expo (iOS + Android, offline) |
-| Web Dashboard (admin) | React.js + Tailwind CSS + Recharts |
-| IVR | Twilio Voice + VXML |
-| PWA (fallback) | Next.js |
-| Mapping | MapLibre GL JS + Deck.gl |
-| GIS Analysis | GDAL / Rasterio / GeoPandas |
-
-### Infrastructure & DevOps
-
-| Component | Technology |
-|---|---|
-| Containers | Docker 24 + Docker Compose |
-| Orchestration | Kubernetes 1.29 (EKS / AKS) |
-| CI/CD | GitHub Actions + ArgoCD |
-| Auto-scaling | Kubernetes HPA + KEDA |
-| Monitoring | Prometheus + Grafana + Loki |
-| Tracing | OpenTelemetry + Jaeger |
-| Secrets | HashiCorp Vault |
-| CDN | Cloudflare + AWS CloudFront |
-| IaC | Terraform + Helm charts |
-
-### External APIs & Data Feeds
-
-| Service | Integration |
-|---|---|
-| AgriStack | REST APIs via MeitY gateway |
-| AgriStack Sandbox | Anonymized datasets for testing |
-| GICEN | Telangana/Karnataka geospatial datasets |
-| IMD Weather | Open Data Portal + MOSDAC APIs |
-| eNAM | Market price feeds |
-| KrishiDSS | ICAR advisory API |
-| NPSS | DPPQ&S image dataset |
-| CGWB | Groundwater WMS/API |
-| PM-KISAN | DBT Bharat eligibility API |
-| ISRO | Bhuvan GeoServer WCS/WMS |
-| DigiLocker | API v2 for Aadhaar/land verification |
-
----
-
-## 8. Hardware Specifications
-
-### Development Setup
-
-| Role | Machine | Spec |
-|---|---|---|
-| Team Lead | MacBook Pro M3 / WSL2 | 16GB RAM, 512GB SSD |
-| AI/ML Engineer | Ubuntu 22.04 | 32GB RAM, 1TB SSD, NVIDIA RTX 4070+ |
-| Backend Engineer | MacBook Pro M3 / Ubuntu | 16GB RAM, 512GB SSD |
-| Frontend Engineer | MacBook Pro M3 / Windows | 16GB RAM, 512GB SSD |
-
-### GPU Training Resources (Cloud)
-
-| Provider | GPU | VRAM | Cost/hr | Use Case |
+| Store | Owner | Data | Demo | Production |
 |---|---|---|---|---|
-| Colab Pro+ | NVIDIA A100 | 40GB | ~$0.50 | YOLOv8 fine-tuning |
-| RunPod | NVIDIA A100 | 40GB | $1.64 | Extended training |
-| AWS g4dn.xlarge | NVIDIA T4 | 16GB | $0.53 | Inference testing |
+| Working memory | Root/orchestrator | Current task and conversation | In-process request | Session store with expiry |
+| Digital twin | Memory Agent | Identity, agronomy, finance, environment, risk | Synthetic JSON | PostgreSQL 15 + PostGIS, versioned |
+| Semantic memory | Memory Agent | Crop, pest, and scheme facts | Seed JSON | Qdrant collections and governed ingest |
+| Episodic memory | Memory Agent | Advice, outcomes, review state | Ignored runtime JSON | Qdrant filtered by `farmer_id` |
+| Audit log | Platform security boundary | Access, decisions, verification evidence | Application trace | Immutable, access-controlled log |
 
-### Model Training Requirements
+## 6. Data model and collection contracts
 
-| Model | Min VRAM | Training Time |
+`FarmerTwin` is keyed by a stable AgriStack farmer identifier and contains:
+
+- identity and consent references (never a stored Aadhaar number);
+- parcel and agronomy profile, including crop history and soil health;
+- financial constraints, eligible schemes, and market linkages;
+- environment state: weather, NDVI, soil moisture, groundwater/risk indicators;
+- active and historical recommendations with verification state.
+
+The first Qdrant collections are `crop_kb`, `pest_kb`, `scheme_kb`, and `farmer_memory`. Retrieval must combine vector similarity with mandatory payload filters, especially `farmer_id` for episodes and state/season/crop for policy or agronomy facts.
+
+## 7. Service interfaces
+
+Production services communicate through typed HTTP or event contracts. A task must include `request_id`, `farmer_id`, source, timestamp, data freshness, consent context, confidence, and verification requirement. Avoid free-text inter-agent control messages.
+
+| Interface | Pattern | Purpose |
 |---|---|---|
-| YOLOv8-m (NPSS, ~50K images) | 8GB | 4–8 hours |
-| EfficientNet-B4 (severity) | 6GB | 2–4 hours |
-| LSTM yield prediction | 4GB | 1–2 hours |
-| XGBoost/LightGBM (tabular) | CPU only | < 30 min |
-| Whisper (multilingual ASR) | 8GB | 6–12 hours |
+| Query API | Synchronous REST | Farmer question to verified response or queued review |
+| Tool adapter | Synchronous typed call | Read an external source with timeout and fallback metadata |
+| Twin update | Versioned command/event | Persist an authorised state change |
+| Alert pipeline | Asynchronous Kafka event | Weather, market, or monitoring trigger |
+| Review workflow | Durable queue plus REST | Officer approve, edit, reject, and audit |
 
-### Docker Compose Requirements (Local Dev)
+## 8. Security architecture
 
-| Resource | Minimum | Recommended |
-|---|---|---|
-| CPU | 4 cores | 8 cores |
-| RAM | 8GB | 16GB |
-| Disk | 50GB free | 100GB free |
+1. Verify consent and role before every farmer-data access.
+2. Enforce least privilege and typed service-to-service identity.
+3. Minimise PII: no Aadhaar storage, hashed mobile identifiers, rounded location when exact geometry is unnecessary.
+4. Encrypt sensitive data at rest and in transit; keep production PII in Indian regions.
+5. Sanitize untrusted content and never allow prompts to override verification rules.
+6. Preserve an audit record of data access, advice, verifier outcomes, and human decisions.
 
-### Production Infrastructure
+The full consent, threat, RBAC, incident, and retention specifications are in [SECURITY.md](SECURITY.md).
 
-| Component | Instance | Count | Spec |
+## 9. Deployment progression
+
+| Stage | Runtime | Data | Operational minimum |
 |---|---|---|---|
-| API Servers | c5.2xlarge | 4 | 8 vCPU, 16GB RAM |
-| GPU Nodes | g4dn.xlarge | 2 | NVIDIA T4 16GB |
-| PostgreSQL | r5.xlarge (Multi-AZ) | 2 | 32GB RAM, 500GB SSD |
-| Redis | r6g.xlarge | 2 | 26GB RAM |
-| Kafka | MSK 3-broker | 3 | kafka.m5.large |
-| S3 Data Lake | Standard + IA | — | 5TB initial |
+| Local demo | Uvicorn or Docker Compose | Synthetic seed JSON, optional local Qdrant | Test suite, no real credentials |
+| Integration | Containerized staging | Qdrant + PostgreSQL, AgriStack Sandbox | Secret store, sandbox consent tests, structured logs |
+| Pilot | Indian-cloud staging | Governed pilot records | RBAC, auditing, monitoring, backup/restore drills |
+| Production | Kubernetes with autoscaling | Managed encrypted stores | CI/CD gates, observability, incident response, DR |
 
-### Edge / Rural Hardware
+## 10. Repository boundaries
 
-| Component | Spec | Purpose |
-|---|---|---|
-| CSC Tablet | Samsung Tab A9+ (8GB) | Farmer-facing kiosk |
-| Edge Computer | Raspberry Pi 5 (8GB) | Offline model inference |
-| Connectivity | 4G USB dongle | Sync-on-connect |
-| Power | UPS (600VA) | Uninterrupted operation |
+```text
+backend/app/       API, domain contracts, workflow, and adapters
+data/seed/         only synthetic, reviewed demonstration data
+frontend/          extension-officer dashboard scaffold
+ml/                model interfaces, datasets policy, evaluation plans
+infra/             deployment and observability assets
+Docs/              canonical engineering and product documentation
+tests/             executable proof of intended behaviour
+```
 
-### Production Cost Estimate
-
-| Item | Monthly Cost |
-|---|---|
-| EKS Cluster | $800 |
-| GPU Nodes | $600 |
-| RDS PostgreSQL | $400 |
-| Redis + MongoDB | $500 |
-| Kafka (MSK) | $300 |
-| S3 + CDN + Networking | $350 |
-| Monitoring + Misc | $250 |
-| **Total** | **~$3,200/month** |
-
-*At 50K farmers: ~$0.064/farmer/month*
-
----
-
-## 9. Scalability Design
-
-| Concern | Solution |
-|---|---|
-| Traffic spikes (sowing season) | Kubernetes HPA + KEDA event-driven scaling |
-| Offline rural areas | Edge-cached models + sync-on-connect |
-| Multi-language | LLM translation layer + regional model fine-tuning |
-| Data freshness | Kafka event streams with max 15-min latency SLA |
-| Multi-state expansion | Stateless microservices + state-per-farmer partitioning |
+`services/` remains as the earlier package scaffold for compatibility with the initial sprint notes; new application code belongs in `backend/app/`. Consolidating the older scaffold is a planned refactor once downstream consumers have migrated.

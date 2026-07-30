@@ -1,0 +1,16 @@
+{
+  "farmer_id": "AGR_TG_005678",
+  "name": "Ravi Kumar",
+  "state": "Telangana",
+  "district": "Warangal",
+  "preferred_language": "te",
+  "consent": {"advisory": true, "granted_at": "2026-07-03T11:30:00Z"},
+  "digital_twin": {
+    "season": "Kharif",
+    "current_crop": "paddy",
+    "soil_fertility": "good",
+    "water_budget_mm": 330,
+    "budget_inr": 75000,
+    "eligible_schemes": ["PM-KISAN"]
+  }
+}
