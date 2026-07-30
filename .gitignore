@@ -8,6 +8,9 @@
 # 📄 DOCUMENTATION (tracked in git)
 # ─────────────────────────────────────────────────────────────────
 
+# Editor-local configuration
+.cursor/
+
 # ─────────────────────────────────────────────────────────────────
 # 🐍 PYTHON / BACKEND (FastAPI + Celery + Agents)
 #    services/
