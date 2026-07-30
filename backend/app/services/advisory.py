@@ -10,10 +10,13 @@ from uuid import uuid4
 from app.core.config import Settings, get_settings
 from app.models.advisory import (
     AdvisoryResponse,
+    AgentRun,
+    DemoFarmerSummary,
     HITLCase,
     HITLDecisionRequest,
     Intent,
     KnowledgeHit,
+    KnowledgeStats,
     MemorySearchRequest,
     QueryRequest,
     ReflectionResult,
@@ -103,11 +106,11 @@ class AdvisoryService:
                 source=collection,
                 title=str(record.get("title", record.get("name", "Seed knowledge"))),
                 score=float(record.get("_score", 0.45)),
-                metadata={
-                    key: value
-                    for key, value in record.items()
-                    if key not in {"title", "name", "_score"}
-                },
+            metadata={
+                key: value
+                for key, value in record.items()
+                if key not in {"title", "name", "_score"} and value is not None
+            },
             )
             for record in records
         ]
@@ -267,11 +270,27 @@ class AdvisoryService:
                 evidence=self._knowledge_hits("pest_kb", evidence_records),
             )
 
-        max_dose = float(protocol["max_dose_ml_per_l"])
         protocol_evidence = protocol | {"_score": 0.95}
         evidence_records = [protocol_evidence] + [
             record for record in evidence_records if record.get("title") != protocol.get("title")
         ]
+        raw_max_dose = protocol.get("max_dose_ml_per_l")
+        if raw_max_dose is None:
+            return AdvisoryDraft(
+                recommendation=(
+                    f"The synthetic reference flags possible {protocol['name']} pressure in "
+                    f"{current_crop}. Capture clear crop images and request extension-officer "
+                    "review before taking treatment action."
+                ),
+                explanation=(
+                    "The reference contains observation guidance but no governed product-specific "
+                    "dose limit, so any supplied dose is blocked."
+                ),
+                confidence=0.58,
+                evidence=self._knowledge_hits("pest_kb", evidence_records),
+            )
+
+        max_dose = float(raw_max_dose)
         recommendation = (
             f"The image-free demo suspects {protocol['name']} pressure in {current_crop}. Capture a clear "
             "leaf photo and obtain officer review before applying any treatment."
@@ -423,6 +442,98 @@ class AdvisoryService:
             )
         return checks
 
+    @staticmethod
+    def _demo_agent_runs(
+        intent: Intent,
+        confidence: float,
+        evidence: list[KnowledgeHit],
+    ) -> list[AgentRun]:
+        """Expose the same graph shape while clearly labelling fallback execution."""
+
+        specialist = {
+            Intent.CROP_PLAN: (
+                "crop_planning_agent",
+                "Crop Planning Agent",
+                "Applied deterministic crop feasibility rules.",
+            ),
+            Intent.DIAGNOSE: (
+                "pest_diagnosis_agent",
+                "Pest Diagnosis Agent",
+                "Matched the query to synthetic IPM observation records.",
+            ),
+            Intent.SCHEME: (
+                "scheme_navigation_agent",
+                "Scheme Navigation Agent",
+                "Matched synthetic scheme records and official verification steps.",
+            ),
+        }[intent]
+        return [
+            AgentRun(
+                agent_id="root_manager",
+                name="Root Manager",
+                role="Consent-gated session owner and task-graph coordinator",
+                status="completed",
+                execution_mode="deterministic",
+                duration_ms=0,
+                summary=f"Completed the {intent.value} fallback graph.",
+                input_sources=["synthetic_consent", "farmer_request"],
+                output_confidence=confidence,
+            ),
+            AgentRun(
+                agent_id="intent_router",
+                name="Intent Router",
+                role="Classifies the request and emits a typed execution plan",
+                status="completed",
+                execution_mode="deterministic",
+                duration_ms=0,
+                summary=f"Routed the request to {specialist[1]}.",
+                input_sources=["farmer_request"],
+            ),
+            AgentRun(
+                agent_id="memory_agent",
+                name="Memory Agent",
+                role="Sole owner of PostgreSQL and Qdrant reads and writes",
+                status="completed",
+                execution_mode="tool",
+                duration_ms=0,
+                summary=f"Retrieved {len(evidence)} synthetic evidence records.",
+                input_sources=["seed_json"],
+            ),
+            AgentRun(
+                agent_id=specialist[0],
+                name=specialist[1],
+                role="Deterministic specialist fallback",
+                status="completed",
+                execution_mode="deterministic",
+                duration_ms=0,
+                summary=specialist[2],
+                input_sources=["synthetic_twin", "seed_knowledge"],
+                output_confidence=confidence,
+            ),
+            AgentRun(
+                agent_id="reflection_agent",
+                name="Reflection Agent",
+                role="Checks grounding, completeness, clarity, and escalation needs",
+                status="completed",
+                execution_mode="deterministic",
+                duration_ms=0,
+                summary="Checked intent coverage, wording, and units.",
+                input_sources=["specialist_draft"],
+                output_confidence=confidence,
+            ),
+            AgentRun(
+                agent_id="safety_verifier",
+                name="Safety Verifier",
+                role="Deterministic, non-LLM delivery gate",
+                status="completed",
+                execution_mode="deterministic",
+                duration_ms=0,
+                summary="Applied water, budget, weather, scheme, and dose gates.",
+                input_sources=["specialist_draft", "synthetic_twin", "safety_rules"],
+                output_confidence=confidence,
+            ),
+        ]
+
     def query(self, request: QueryRequest) -> AdvisoryResponse:
         request_id = str(uuid4())
         consent = self._require_consent(
@@ -486,6 +597,7 @@ class AdvisoryService:
                 ),
             ),
         ]
+        agent_runs = self._demo_agent_runs(intent, draft.confidence, draft.evidence)
 
         reflection = ReflectionResult(
             status="pass",
@@ -518,6 +630,7 @@ class AdvisoryService:
                     "evidence": [hit.model_dump(mode="json") for hit in draft.evidence],
                     "verification": [check.model_dump(mode="json") for check in verification],
                     "trace": [event.model_dump(mode="json") for event in trace],
+                    "agent_runs": [run.model_dump(mode="json") for run in agent_runs],
                     "created_at": datetime.now(timezone.utc).isoformat(),
                     "decision_history": [],
                 }
@@ -536,6 +649,7 @@ class AdvisoryService:
             reflection=reflection,
             verification=verification,
             trace=trace,
+            agent_runs=agent_runs,
             hitl_case_id=hitl_case_id,
         )
         self.memory.append(
@@ -564,6 +678,15 @@ class AdvisoryService:
             frozenset({ConsentScope.FARMER_PROFILE, ConsentScope.ADVISORY}),
         )
         return self._read_authorised_farmer(farmer_id, consent)
+
+    def knowledge_stats(self) -> KnowledgeStats:
+        return KnowledgeStats(runtime_mode="demo", **self.repository.knowledge_stats())
+
+    def list_demo_farmers(self) -> list[DemoFarmerSummary]:
+        return [
+            DemoFarmerSummary.model_validate(summary)
+            for summary in self.repository.list_farmer_summaries()
+        ]
 
     def decide_hitl(self, case_id: str, request: HITLDecisionRequest) -> HITLCase | None:
         self._apply_runtime_retention()

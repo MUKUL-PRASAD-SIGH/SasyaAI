@@ -136,6 +136,27 @@ class SeedRepository:
         consent = self._consents.get(farmer_id)
         return copy.deepcopy(consent) if consent is not None else None
 
+    def list_farmer_summaries(self) -> list[dict[str, Any]]:
+        """Return non-sensitive fields from synthetic fixtures for the demo UI."""
+
+        summaries = []
+        for farmer in self._farmers.values():
+            twin = farmer["digital_twin"]
+            summaries.append(
+                {
+                    "farmer_id": farmer["farmer_id"],
+                    "name": farmer["name"],
+                    "state": farmer["state"],
+                    "district": farmer["district"],
+                    "preferred_language": farmer["preferred_language"],
+                    "current_crop": twin["current_crop"],
+                    "season": twin["season"],
+                    "water_budget_mm": twin["water_budget_mm"],
+                    "farm_size_hectares": twin["farm_size_hectares"],
+                }
+            )
+        return sorted(summaries, key=lambda item: (item["state"], item["district"]))
+
     def list_knowledge(self, collection: str) -> list[dict[str, Any]]:
         try:
             return copy.deepcopy(self._knowledge[collection])
@@ -157,6 +178,34 @@ class SeedRepository:
             record | {"_score": score}
             for score, record in sorted(ranked, reverse=True, key=lambda item: item[0])[:limit]
         ]
+
+    def knowledge_stats(self) -> dict[str, object]:
+        collection_names = {
+            "crops": "crop_kb",
+            "pests": "pest_kb",
+            "schemes": "scheme_kb",
+        }
+        collections = {
+            collection_names[name]: len(records) for name, records in self._knowledge.items()
+        }
+        regions = {
+            str(record.get("region", record.get("state", "all")))
+            for records in self._knowledge.values()
+            for record in records
+            if str(record.get("region", record.get("state", "all"))).lower() != "all"
+        }
+        crops = {
+            str(record["crop"])
+            for collection in ("crops", "pests")
+            for record in self._knowledge[collection]
+            if record.get("crop")
+        }
+        return {
+            "collections": collections,
+            "total_documents": sum(collections.values()),
+            "regions": len(regions),
+            "crops": len(crops),
+        }
 
 
 class _JsonListStore:

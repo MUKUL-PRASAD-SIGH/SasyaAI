@@ -1,0 +1,43 @@
+{
+  "farmer_id": "AGR_MP_010104",
+  "name": "Meera Kushwaha",
+  "state": "Madhya Pradesh",
+  "district": "Sehore",
+  "preferred_language": "hi",
+  "synthetic_data": true,
+  "consent": {
+    "advisory": true,
+    "consent_id": "SYN_CONSENT_MP_010104",
+    "status": "granted",
+    "purpose": "agricultural_advisory",
+    "scopes": [
+      "farmer_profile",
+      "advisory",
+      "advisory_memory"
+    ],
+    "granted_at": "2026-07-01T09:00:00Z",
+    "expires_at": "2030-12-31T23:59:59Z",
+    "revoked_at": null
+  },
+  "digital_twin": {
+    "season": "Kharif",
+    "current_crop": "soybean",
+    "soil_fertility": "moderate",
+    "water_budget_mm": 260,
+    "budget_inr": 62000,
+    "eligible_schemes": [
+      "PM-KISAN",
+      "PMFBY",
+      "Soil Health Card"
+    ],
+    "weather_alert": false,
+    "farm_size_hectares": 3.3,
+    "soil_type": "black soil",
+    "irrigation_type": "rainfed",
+    "risk_flags": []
+  },
+  "location": {
+    "latitude": 23.2,
+    "longitude": 77.08
+  }
+}

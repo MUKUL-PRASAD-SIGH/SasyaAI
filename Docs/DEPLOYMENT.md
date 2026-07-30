@@ -1,65 +1,83 @@
-# SasyaAI Demonstrator Deployment Guide
+# SasyaAI deployment guide
 
-This guide covers the local synthetic-data demonstrator only. It is not a
-production deployment runbook.
-
-## Docker Compose
+## Local four-service stack
 
 ```powershell
 Copy-Item .env.example .env
 docker compose up --build
 ```
 
-The API is available on port `8000`. The current FastAPI workflow uses seed
-JSON rather than Qdrant, so the default Compose route is self-contained and
-does not start a retrieval container.
+The stack contains:
 
-To include the optional local Qdrant container (ports `6333` and `6334`) for
-future retrieval experiments, run:
+- Nginx operations UI on `http://127.0.0.1:5173`;
+- FastAPI on `http://127.0.0.1:8000`;
+- PostgreSQL on port `5432`; and
+- Qdrant on ports `6333` and `6334`.
+
+The UI uses same-origin `/api/*` and `/health` proxying. Both UI and API images
+have health checks. PostgreSQL and Qdrant use named volumes; demo JSON state
+uses `./var`, which is ignored by Git.
+
+Compose uses `.env` by default. Configuration-only validation can use the
+checked-in example without creating a local secret file:
 
 ```powershell
-docker compose --profile retrieval up --build
+$env:ENV_FILE = ".env.example"
+docker compose config --quiet
 ```
 
-Qdrant is present for the next retrieval integration phase and is not evidence
-of live semantic search.
+## Runtime choice
 
-Compose mounts `./var` into the API container so local advisory episodes and
-HITL decisions survive an API-container restart. It contains only synthetic
-demo state and is ignored by Git.
+`RUNTIME_MODE=demo` is the default and never touches PostgreSQL, Qdrant, Gemini,
+or live providers for advisory work. It is an evaluation runtime over
+synthetic data.
 
-## Protected-mode foundation
+`RUNTIME_MODE=production` refuses startup unless live credentials,
+authentication, durable stores, and OTLP tracing are configured. It does not
+fall back to demo records. Follow [Production Runtime](PRODUCTION_RUNTIME.md)
+and the [Production Activation Checklist](PRODUCTION_ACTIVATION_CHECKLIST.md).
 
-The default `.env.example` keeps the local synthetic demo open. Any non-local
-environment must set `AUTH_REQUIRED=true`, provide `AUTH_PRINCIPALS_JSON` from
-a secret manager, configure an approved `SAFETY_RULE_SET_VERSION`, and set an
-explicit retention period. The current API-key mechanism is a transitional
-adapter; do not put its value in a browser environment file. Replace it with
-the approved OIDC/JWT gateway and distributed rate limiting before production.
+## Images
 
-Follow [PRODUCTION_ACTIVATION_CHECKLIST.md](PRODUCTION_ACTIVATION_CHECKLIST.md)
-for the live-consent, provider, database, audit-export, backup, monitoring,
-and security gates that are not activated by this repository.
+The API image preloads the pinned FastEmbed multilingual ONNX model at build
+time. This avoids a first-request model download and does not install CUDA.
+Override `EMBEDDING_MODEL` only by building a new image and rebuilding empty
+Qdrant collections with the matching vector dimension.
 
-## Dashboard
+The dashboard is built with Node 22 and served by Nginx with a restrictive
+Content Security Policy, static-asset caching, and a dynamically resolved API
+upstream.
 
-The officer dashboard is intentionally run as a separate local Vite process:
+## Protected access
+
+Production requires `AUTH_REQUIRED=true`. The transitional credential adapter
+accepts role-scoped `X-API-Key` values from a secret source. The internal UI
+keeps an entered key in memory only and clears it on reload. Do not compile a
+credential into `VITE_*` variables. Put OIDC and a backend-for-frontend gateway
+in front of any public deployment.
+
+## Release checks
 
 ```powershell
+python -m ruff check backend tests scripts
+python -m pytest -q
+
 Set-Location frontend
-Copy-Item .env.example .env
 npm ci
+npm audit
 npm run build
-npm run preview
+npm test
+npm run test:e2e
 ```
 
-For development, use `npm run dev`. Set `VITE_API_BASE_URL` only when the API
-is served from a different address. Configure the API `CORS_ORIGINS` to include
-the dashboard origin.
+Also validate Compose, build both images, and run container health smoke tests.
+CI executes lint, backend tests, frontend component/build checks, and Chromium
+E2E journeys.
 
-## Before any non-local deployment
+## Non-local deployment
 
-Do not deploy this demo with real farmer data. Complete the consent, identity,
-secret management, source-freshness, audit durability, sandbox, security, and
-domain-review gates described in [ROADMAP.md](ROADMAP.md) and
-[SECURITY.md](SECURITY.md) first.
+The checked-in Compose stack is a reproducible integration environment, not a
+complete public-cloud runbook. Before a pilot, provide managed encrypted stores,
+secret management, OIDC, distributed rate limits, WAF controls, India-resident
+data placement, backups and restore drills, central audit/SIEM export, provider
+contract tests, load testing, accessibility testing, and domain/legal approval.

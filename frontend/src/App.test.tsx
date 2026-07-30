@@ -6,6 +6,10 @@ import App from "./App";
 import type { HitlCase } from "./types";
 
 const apiMocks = vi.hoisted(() => ({
+  getKnowledgeStats: vi.fn(),
+  getRuntimeHealth: vi.fn(),
+  listAgents: vi.fn(),
+  listDemoFarmers: vi.fn(),
   listHitlCases: vi.fn(),
   submitHitlDecision: vi.fn(),
   submitQuery: vi.fn(),
@@ -14,6 +18,11 @@ const apiMocks = vi.hoisted(() => ({
 vi.mock("./api", () => ({
   ApiError: class ApiError extends Error {},
   apiBaseUrl: "http://127.0.0.1:8000",
+  configureApiKey: vi.fn(),
+  getKnowledgeStats: apiMocks.getKnowledgeStats,
+  getRuntimeHealth: apiMocks.getRuntimeHealth,
+  listAgents: apiMocks.listAgents,
+  listDemoFarmers: apiMocks.listDemoFarmers,
   listHitlCases: apiMocks.listHitlCases,
   submitHitlDecision: apiMocks.submitHitlDecision,
   submitQuery: apiMocks.submitQuery,
@@ -49,8 +58,28 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
+function mockRuntimeContext() {
+  apiMocks.getRuntimeHealth.mockResolvedValue({
+    status: "ok",
+    service: "SasyaAI",
+    environment: "test",
+    runtime_mode: "demo",
+    agent_execution: "deterministic_fallback",
+  });
+  apiMocks.listAgents.mockResolvedValue([]);
+  apiMocks.getKnowledgeStats.mockResolvedValue({
+    runtime_mode: "demo",
+    collections: { crop_kb: 54, pest_kb: 36, scheme_kb: 15 },
+    total_documents: 105,
+    regions: 18,
+    crops: 20,
+  });
+  apiMocks.listDemoFarmers.mockResolvedValue([]);
+}
+
 describe("extension-officer review safety", () => {
   it("binds evidence and trace to the selected case", async () => {
+    mockRuntimeContext();
     apiMocks.listHitlCases.mockResolvedValue([caseA, caseB]);
     const user = userEvent.setup();
     render(<App />);
@@ -66,6 +95,7 @@ describe("extension-officer review safety", () => {
   });
 
   it("clears a draft decision when the officer switches cases", async () => {
+    mockRuntimeContext();
     apiMocks.listHitlCases.mockResolvedValue([caseA, caseB]);
     const user = userEvent.setup();
     render(<App />);
@@ -86,6 +116,7 @@ describe("extension-officer review safety", () => {
   });
 
   it("does not submit an edit-and-approve decision without edited advice", async () => {
+    mockRuntimeContext();
     apiMocks.listHitlCases.mockResolvedValue([caseA]);
     const user = userEvent.setup();
     render(<App />);

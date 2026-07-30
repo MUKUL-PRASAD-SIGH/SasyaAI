@@ -10,7 +10,11 @@
     "consent_id": "SYN_CONSENT_MH_001234",
     "status": "granted",
     "purpose": "agricultural_advisory",
-    "scopes": ["farmer_profile", "advisory", "advisory_memory"],
+    "scopes": [
+      "farmer_profile",
+      "advisory",
+      "advisory_memory"
+    ],
     "granted_at": "2026-07-01T09:00:00Z",
     "expires_at": "2030-12-31T23:59:59Z",
     "revoked_at": null
@@ -20,7 +24,20 @@
     "current_crop": "cotton",
     "soil_fertility": "moderate",
     "water_budget_mm": 280,
-    "budget_inr": 60000,
-    "eligible_schemes": ["PM-KISAN", "PMFBY"]
+    "budget_inr": 80000,
+    "eligible_schemes": [
+      "PM-KISAN",
+      "PMFBY",
+      "Soil Health Card"
+    ],
+    "weather_alert": false,
+    "farm_size_hectares": 1.2,
+    "soil_type": "black soil",
+    "irrigation_type": "mixed",
+    "risk_flags": []
+  },
+  "location": {
+    "latitude": 19.85,
+    "longitude": 78.25
   }
 }

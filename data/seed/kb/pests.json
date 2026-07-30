@@ -1,18 +1,686 @@
 [
   {
-    "title": "Cotton aphid integrated-pest-management protocol",
+    "title": "Soybean stem fly observation guide for Maharashtra",
+    "name": "stem fly",
+    "crop": "soybean",
+    "region": "Maharashtra",
+    "max_dose_ml_per_l": null,
+    "guidance": "Scout young plants for tunnelling or wilting and compare with a reviewed local IPM guide.",
+    "source_name": "SasyaAI synthetic IPM evaluation reference",
+    "source_url": "https://icar.gov.in/en/agricultural-engineering/salient-technologies",
+    "source_updated_at": "2026-07-31",
+    "review_status": "synthetic_reference",
+    "tags": [
+      "soybean",
+      "stem fly",
+      "Maharashtra",
+      "ipm",
+      "human-review"
+    ]
+  },
+  {
+    "title": "Cotton aphid observation guide for Maharashtra",
     "name": "aphid",
     "crop": "cotton",
     "region": "Maharashtra",
     "max_dose_ml_per_l": 2,
-    "guidance": "Confirm the pest from a clear image and use only a current, approved label protocol."
+    "guidance": "Inspect the underside of leaves, record beneficial insects, and request product-specific review.",
+    "source_name": "SasyaAI synthetic IPM evaluation reference",
+    "source_url": "https://icar.gov.in/en/agricultural-engineering/salient-technologies",
+    "source_updated_at": "2026-07-31",
+    "review_status": "synthetic_reference",
+    "tags": [
+      "cotton",
+      "aphid",
+      "Maharashtra",
+      "ipm",
+      "human-review"
+    ]
   },
   {
-    "title": "Rice leaf folder observation guide",
+    "title": "Millet downy mildew observation guide for Karnataka",
+    "name": "downy mildew",
+    "crop": "millet",
+    "region": "Karnataka",
+    "max_dose_ml_per_l": null,
+    "guidance": "Separate symptom observation from diagnosis and use locally reviewed resistant-variety guidance.",
+    "source_name": "SasyaAI synthetic IPM evaluation reference",
+    "source_url": "https://icar.gov.in/en/agricultural-engineering/salient-technologies",
+    "source_updated_at": "2026-07-31",
+    "review_status": "synthetic_reference",
+    "tags": [
+      "millet",
+      "downy mildew",
+      "Karnataka",
+      "ipm",
+      "human-review"
+    ]
+  },
+  {
+    "title": "Maize fall armyworm observation guide for Karnataka",
+    "name": "fall armyworm",
+    "crop": "maize",
+    "region": "Karnataka",
+    "max_dose_ml_per_l": null,
+    "guidance": "Inspect whorls for fresh damage and frass; escalate uncertain observations with clear images.",
+    "source_name": "SasyaAI synthetic IPM evaluation reference",
+    "source_url": "https://icar.gov.in/en/agricultural-engineering/salient-technologies",
+    "source_updated_at": "2026-07-31",
+    "review_status": "synthetic_reference",
+    "tags": [
+      "maize",
+      "fall armyworm",
+      "Karnataka",
+      "ipm",
+      "human-review"
+    ]
+  },
+  {
+    "title": "Paddy leaf folder observation guide for Telangana",
     "name": "leaf folder",
     "crop": "paddy",
     "region": "Telangana",
     "max_dose_ml_per_l": 2,
-    "guidance": "Inspect folded leaves and escalate uncertain observations to an extension officer."
+    "guidance": "Inspect folded leaves and quantify field incidence before requesting treatment guidance.",
+    "source_name": "SasyaAI synthetic IPM evaluation reference",
+    "source_url": "https://icar.gov.in/en/agricultural-engineering/salient-technologies",
+    "source_updated_at": "2026-07-31",
+    "review_status": "synthetic_reference",
+    "tags": [
+      "paddy",
+      "leaf folder",
+      "Telangana",
+      "ipm",
+      "human-review"
+    ]
+  },
+  {
+    "title": "Cotton aphid observation guide for Telangana",
+    "name": "aphid",
+    "crop": "cotton",
+    "region": "Telangana",
+    "max_dose_ml_per_l": null,
+    "guidance": "Inspect the underside of leaves, record beneficial insects, and request product-specific review.",
+    "source_name": "SasyaAI synthetic IPM evaluation reference",
+    "source_url": "https://icar.gov.in/en/agricultural-engineering/salient-technologies",
+    "source_updated_at": "2026-07-31",
+    "review_status": "synthetic_reference",
+    "tags": [
+      "cotton",
+      "aphid",
+      "Telangana",
+      "ipm",
+      "human-review"
+    ]
+  },
+  {
+    "title": "Wheat yellow rust observation guide for Punjab",
+    "name": "yellow rust",
+    "crop": "wheat",
+    "region": "Punjab",
+    "max_dose_ml_per_l": null,
+    "guidance": "Photograph stripe symptoms and confirm current local surveillance before acting.",
+    "source_name": "SasyaAI synthetic IPM evaluation reference",
+    "source_url": "https://icar.gov.in/en/agricultural-engineering/salient-technologies",
+    "source_updated_at": "2026-07-31",
+    "review_status": "synthetic_reference",
+    "tags": [
+      "wheat",
+      "yellow rust",
+      "Punjab",
+      "ipm",
+      "human-review"
+    ]
+  },
+  {
+    "title": "Paddy leaf folder observation guide for Punjab",
+    "name": "leaf folder",
+    "crop": "paddy",
+    "region": "Punjab",
+    "max_dose_ml_per_l": null,
+    "guidance": "Inspect folded leaves and quantify field incidence before requesting treatment guidance.",
+    "source_name": "SasyaAI synthetic IPM evaluation reference",
+    "source_url": "https://icar.gov.in/en/agricultural-engineering/salient-technologies",
+    "source_updated_at": "2026-07-31",
+    "review_status": "synthetic_reference",
+    "tags": [
+      "paddy",
+      "leaf folder",
+      "Punjab",
+      "ipm",
+      "human-review"
+    ]
+  },
+  {
+    "title": "Wheat yellow rust observation guide for Haryana",
+    "name": "yellow rust",
+    "crop": "wheat",
+    "region": "Haryana",
+    "max_dose_ml_per_l": null,
+    "guidance": "Photograph stripe symptoms and confirm current local surveillance before acting.",
+    "source_name": "SasyaAI synthetic IPM evaluation reference",
+    "source_url": "https://icar.gov.in/en/agricultural-engineering/salient-technologies",
+    "source_updated_at": "2026-07-31",
+    "review_status": "synthetic_reference",
+    "tags": [
+      "wheat",
+      "yellow rust",
+      "Haryana",
+      "ipm",
+      "human-review"
+    ]
+  },
+  {
+    "title": "Mustard mustard aphid observation guide for Haryana",
+    "name": "mustard aphid",
+    "crop": "mustard",
+    "region": "Haryana",
+    "max_dose_ml_per_l": null,
+    "guidance": "Record colony distribution and beneficial insects before requesting an authorised protocol.",
+    "source_name": "SasyaAI synthetic IPM evaluation reference",
+    "source_url": "https://icar.gov.in/en/agricultural-engineering/salient-technologies",
+    "source_updated_at": "2026-07-31",
+    "review_status": "synthetic_reference",
+    "tags": [
+      "mustard",
+      "mustard aphid",
+      "Haryana",
+      "ipm",
+      "human-review"
+    ]
+  },
+  {
+    "title": "Wheat yellow rust observation guide for Uttar Pradesh",
+    "name": "yellow rust",
+    "crop": "wheat",
+    "region": "Uttar Pradesh",
+    "max_dose_ml_per_l": null,
+    "guidance": "Photograph stripe symptoms and confirm current local surveillance before acting.",
+    "source_name": "SasyaAI synthetic IPM evaluation reference",
+    "source_url": "https://icar.gov.in/en/agricultural-engineering/salient-technologies",
+    "source_updated_at": "2026-07-31",
+    "review_status": "synthetic_reference",
+    "tags": [
+      "wheat",
+      "yellow rust",
+      "Uttar Pradesh",
+      "ipm",
+      "human-review"
+    ]
+  },
+  {
+    "title": "Potato late blight observation guide for Uttar Pradesh",
+    "name": "late blight",
+    "crop": "potato",
+    "region": "Uttar Pradesh",
+    "max_dose_ml_per_l": null,
+    "guidance": "Treat rapidly spreading water-soaked lesions as urgent and obtain current local guidance.",
+    "source_name": "SasyaAI synthetic IPM evaluation reference",
+    "source_url": "https://icar.gov.in/en/agricultural-engineering/salient-technologies",
+    "source_updated_at": "2026-07-31",
+    "review_status": "synthetic_reference",
+    "tags": [
+      "potato",
+      "late blight",
+      "Uttar Pradesh",
+      "ipm",
+      "human-review"
+    ]
+  },
+  {
+    "title": "Soybean stem fly observation guide for Madhya Pradesh",
+    "name": "stem fly",
+    "crop": "soybean",
+    "region": "Madhya Pradesh",
+    "max_dose_ml_per_l": null,
+    "guidance": "Scout young plants for tunnelling or wilting and compare with a reviewed local IPM guide.",
+    "source_name": "SasyaAI synthetic IPM evaluation reference",
+    "source_url": "https://icar.gov.in/en/agricultural-engineering/salient-technologies",
+    "source_updated_at": "2026-07-31",
+    "review_status": "synthetic_reference",
+    "tags": [
+      "soybean",
+      "stem fly",
+      "Madhya Pradesh",
+      "ipm",
+      "human-review"
+    ]
+  },
+  {
+    "title": "Wheat yellow rust observation guide for Madhya Pradesh",
+    "name": "yellow rust",
+    "crop": "wheat",
+    "region": "Madhya Pradesh",
+    "max_dose_ml_per_l": null,
+    "guidance": "Photograph stripe symptoms and confirm current local surveillance before acting.",
+    "source_name": "SasyaAI synthetic IPM evaluation reference",
+    "source_url": "https://icar.gov.in/en/agricultural-engineering/salient-technologies",
+    "source_updated_at": "2026-07-31",
+    "review_status": "synthetic_reference",
+    "tags": [
+      "wheat",
+      "yellow rust",
+      "Madhya Pradesh",
+      "ipm",
+      "human-review"
+    ]
+  },
+  {
+    "title": "Pearl Millet downy mildew observation guide for Rajasthan",
+    "name": "downy mildew",
+    "crop": "pearl millet",
+    "region": "Rajasthan",
+    "max_dose_ml_per_l": null,
+    "guidance": "Verify systemic symptoms and local variety susceptibility with an extension officer.",
+    "source_name": "SasyaAI synthetic IPM evaluation reference",
+    "source_url": "https://icar.gov.in/en/agricultural-engineering/salient-technologies",
+    "source_updated_at": "2026-07-31",
+    "review_status": "synthetic_reference",
+    "tags": [
+      "pearl millet",
+      "downy mildew",
+      "Rajasthan",
+      "ipm",
+      "human-review"
+    ]
+  },
+  {
+    "title": "Mustard mustard aphid observation guide for Rajasthan",
+    "name": "mustard aphid",
+    "crop": "mustard",
+    "region": "Rajasthan",
+    "max_dose_ml_per_l": null,
+    "guidance": "Record colony distribution and beneficial insects before requesting an authorised protocol.",
+    "source_name": "SasyaAI synthetic IPM evaluation reference",
+    "source_url": "https://icar.gov.in/en/agricultural-engineering/salient-technologies",
+    "source_updated_at": "2026-07-31",
+    "review_status": "synthetic_reference",
+    "tags": [
+      "mustard",
+      "mustard aphid",
+      "Rajasthan",
+      "ipm",
+      "human-review"
+    ]
+  },
+  {
+    "title": "Groundnut leaf miner observation guide for Gujarat",
+    "name": "leaf miner",
+    "crop": "groundnut",
+    "region": "Gujarat",
+    "max_dose_ml_per_l": null,
+    "guidance": "Inspect folded leaflets and field distribution before deciding whether intervention is justified.",
+    "source_name": "SasyaAI synthetic IPM evaluation reference",
+    "source_url": "https://icar.gov.in/en/agricultural-engineering/salient-technologies",
+    "source_updated_at": "2026-07-31",
+    "review_status": "synthetic_reference",
+    "tags": [
+      "groundnut",
+      "leaf miner",
+      "Gujarat",
+      "ipm",
+      "human-review"
+    ]
+  },
+  {
+    "title": "Cotton aphid observation guide for Gujarat",
+    "name": "aphid",
+    "crop": "cotton",
+    "region": "Gujarat",
+    "max_dose_ml_per_l": null,
+    "guidance": "Inspect the underside of leaves, record beneficial insects, and request product-specific review.",
+    "source_name": "SasyaAI synthetic IPM evaluation reference",
+    "source_url": "https://icar.gov.in/en/agricultural-engineering/salient-technologies",
+    "source_updated_at": "2026-07-31",
+    "review_status": "synthetic_reference",
+    "tags": [
+      "cotton",
+      "aphid",
+      "Gujarat",
+      "ipm",
+      "human-review"
+    ]
+  },
+  {
+    "title": "Paddy leaf folder observation guide for Tamil Nadu",
+    "name": "leaf folder",
+    "crop": "paddy",
+    "region": "Tamil Nadu",
+    "max_dose_ml_per_l": null,
+    "guidance": "Inspect folded leaves and quantify field incidence before requesting treatment guidance.",
+    "source_name": "SasyaAI synthetic IPM evaluation reference",
+    "source_url": "https://icar.gov.in/en/agricultural-engineering/salient-technologies",
+    "source_updated_at": "2026-07-31",
+    "review_status": "synthetic_reference",
+    "tags": [
+      "paddy",
+      "leaf folder",
+      "Tamil Nadu",
+      "ipm",
+      "human-review"
+    ]
+  },
+  {
+    "title": "Groundnut leaf miner observation guide for Tamil Nadu",
+    "name": "leaf miner",
+    "crop": "groundnut",
+    "region": "Tamil Nadu",
+    "max_dose_ml_per_l": null,
+    "guidance": "Inspect folded leaflets and field distribution before deciding whether intervention is justified.",
+    "source_name": "SasyaAI synthetic IPM evaluation reference",
+    "source_url": "https://icar.gov.in/en/agricultural-engineering/salient-technologies",
+    "source_updated_at": "2026-07-31",
+    "review_status": "synthetic_reference",
+    "tags": [
+      "groundnut",
+      "leaf miner",
+      "Tamil Nadu",
+      "ipm",
+      "human-review"
+    ]
+  },
+  {
+    "title": "Paddy leaf folder observation guide for Andhra Pradesh",
+    "name": "leaf folder",
+    "crop": "paddy",
+    "region": "Andhra Pradesh",
+    "max_dose_ml_per_l": null,
+    "guidance": "Inspect folded leaves and quantify field incidence before requesting treatment guidance.",
+    "source_name": "SasyaAI synthetic IPM evaluation reference",
+    "source_url": "https://icar.gov.in/en/agricultural-engineering/salient-technologies",
+    "source_updated_at": "2026-07-31",
+    "review_status": "synthetic_reference",
+    "tags": [
+      "paddy",
+      "leaf folder",
+      "Andhra Pradesh",
+      "ipm",
+      "human-review"
+    ]
+  },
+  {
+    "title": "Groundnut leaf miner observation guide for Andhra Pradesh",
+    "name": "leaf miner",
+    "crop": "groundnut",
+    "region": "Andhra Pradesh",
+    "max_dose_ml_per_l": null,
+    "guidance": "Inspect folded leaflets and field distribution before deciding whether intervention is justified.",
+    "source_name": "SasyaAI synthetic IPM evaluation reference",
+    "source_url": "https://icar.gov.in/en/agricultural-engineering/salient-technologies",
+    "source_updated_at": "2026-07-31",
+    "review_status": "synthetic_reference",
+    "tags": [
+      "groundnut",
+      "leaf miner",
+      "Andhra Pradesh",
+      "ipm",
+      "human-review"
+    ]
+  },
+  {
+    "title": "Paddy leaf folder observation guide for Odisha",
+    "name": "leaf folder",
+    "crop": "paddy",
+    "region": "Odisha",
+    "max_dose_ml_per_l": null,
+    "guidance": "Inspect folded leaves and quantify field incidence before requesting treatment guidance.",
+    "source_name": "SasyaAI synthetic IPM evaluation reference",
+    "source_url": "https://icar.gov.in/en/agricultural-engineering/salient-technologies",
+    "source_updated_at": "2026-07-31",
+    "review_status": "synthetic_reference",
+    "tags": [
+      "paddy",
+      "leaf folder",
+      "Odisha",
+      "ipm",
+      "human-review"
+    ]
+  },
+  {
+    "title": "Pigeon Pea pod fly observation guide for Odisha",
+    "name": "pod fly",
+    "crop": "pigeon pea",
+    "region": "Odisha",
+    "max_dose_ml_per_l": null,
+    "guidance": "Inspect damaged pods and confirm pest identity through extension review.",
+    "source_name": "SasyaAI synthetic IPM evaluation reference",
+    "source_url": "https://icar.gov.in/en/agricultural-engineering/salient-technologies",
+    "source_updated_at": "2026-07-31",
+    "review_status": "synthetic_reference",
+    "tags": [
+      "pigeon pea",
+      "pod fly",
+      "Odisha",
+      "ipm",
+      "human-review"
+    ]
+  },
+  {
+    "title": "Maize fall armyworm observation guide for Bihar",
+    "name": "fall armyworm",
+    "crop": "maize",
+    "region": "Bihar",
+    "max_dose_ml_per_l": null,
+    "guidance": "Inspect whorls for fresh damage and frass; escalate uncertain observations with clear images.",
+    "source_name": "SasyaAI synthetic IPM evaluation reference",
+    "source_url": "https://icar.gov.in/en/agricultural-engineering/salient-technologies",
+    "source_updated_at": "2026-07-31",
+    "review_status": "synthetic_reference",
+    "tags": [
+      "maize",
+      "fall armyworm",
+      "Bihar",
+      "ipm",
+      "human-review"
+    ]
+  },
+  {
+    "title": "Wheat yellow rust observation guide for Bihar",
+    "name": "yellow rust",
+    "crop": "wheat",
+    "region": "Bihar",
+    "max_dose_ml_per_l": null,
+    "guidance": "Photograph stripe symptoms and confirm current local surveillance before acting.",
+    "source_name": "SasyaAI synthetic IPM evaluation reference",
+    "source_url": "https://icar.gov.in/en/agricultural-engineering/salient-technologies",
+    "source_updated_at": "2026-07-31",
+    "review_status": "synthetic_reference",
+    "tags": [
+      "wheat",
+      "yellow rust",
+      "Bihar",
+      "ipm",
+      "human-review"
+    ]
+  },
+  {
+    "title": "Paddy leaf folder observation guide for West Bengal",
+    "name": "leaf folder",
+    "crop": "paddy",
+    "region": "West Bengal",
+    "max_dose_ml_per_l": null,
+    "guidance": "Inspect folded leaves and quantify field incidence before requesting treatment guidance.",
+    "source_name": "SasyaAI synthetic IPM evaluation reference",
+    "source_url": "https://icar.gov.in/en/agricultural-engineering/salient-technologies",
+    "source_updated_at": "2026-07-31",
+    "review_status": "synthetic_reference",
+    "tags": [
+      "paddy",
+      "leaf folder",
+      "West Bengal",
+      "ipm",
+      "human-review"
+    ]
+  },
+  {
+    "title": "Potato late blight observation guide for West Bengal",
+    "name": "late blight",
+    "crop": "potato",
+    "region": "West Bengal",
+    "max_dose_ml_per_l": null,
+    "guidance": "Treat rapidly spreading water-soaked lesions as urgent and obtain current local guidance.",
+    "source_name": "SasyaAI synthetic IPM evaluation reference",
+    "source_url": "https://icar.gov.in/en/agricultural-engineering/salient-technologies",
+    "source_updated_at": "2026-07-31",
+    "review_status": "synthetic_reference",
+    "tags": [
+      "potato",
+      "late blight",
+      "West Bengal",
+      "ipm",
+      "human-review"
+    ]
+  },
+  {
+    "title": "Paddy leaf folder observation guide for Assam",
+    "name": "leaf folder",
+    "crop": "paddy",
+    "region": "Assam",
+    "max_dose_ml_per_l": null,
+    "guidance": "Inspect folded leaves and quantify field incidence before requesting treatment guidance.",
+    "source_name": "SasyaAI synthetic IPM evaluation reference",
+    "source_url": "https://icar.gov.in/en/agricultural-engineering/salient-technologies",
+    "source_updated_at": "2026-07-31",
+    "review_status": "synthetic_reference",
+    "tags": [
+      "paddy",
+      "leaf folder",
+      "Assam",
+      "ipm",
+      "human-review"
+    ]
+  },
+  {
+    "title": "Mustard mustard aphid observation guide for Assam",
+    "name": "mustard aphid",
+    "crop": "mustard",
+    "region": "Assam",
+    "max_dose_ml_per_l": null,
+    "guidance": "Record colony distribution and beneficial insects before requesting an authorised protocol.",
+    "source_name": "SasyaAI synthetic IPM evaluation reference",
+    "source_url": "https://icar.gov.in/en/agricultural-engineering/salient-technologies",
+    "source_updated_at": "2026-07-31",
+    "review_status": "synthetic_reference",
+    "tags": [
+      "mustard",
+      "mustard aphid",
+      "Assam",
+      "ipm",
+      "human-review"
+    ]
+  },
+  {
+    "title": "Paddy leaf folder observation guide for Chhattisgarh",
+    "name": "leaf folder",
+    "crop": "paddy",
+    "region": "Chhattisgarh",
+    "max_dose_ml_per_l": null,
+    "guidance": "Inspect folded leaves and quantify field incidence before requesting treatment guidance.",
+    "source_name": "SasyaAI synthetic IPM evaluation reference",
+    "source_url": "https://icar.gov.in/en/agricultural-engineering/salient-technologies",
+    "source_updated_at": "2026-07-31",
+    "review_status": "synthetic_reference",
+    "tags": [
+      "paddy",
+      "leaf folder",
+      "Chhattisgarh",
+      "ipm",
+      "human-review"
+    ]
+  },
+  {
+    "title": "Chickpea pod borer observation guide for Chhattisgarh",
+    "name": "pod borer",
+    "crop": "chickpea",
+    "region": "Chhattisgarh",
+    "max_dose_ml_per_l": null,
+    "guidance": "Use field scouting and pod-damage counts before any intervention decision.",
+    "source_name": "SasyaAI synthetic IPM evaluation reference",
+    "source_url": "https://icar.gov.in/en/agricultural-engineering/salient-technologies",
+    "source_updated_at": "2026-07-31",
+    "review_status": "synthetic_reference",
+    "tags": [
+      "chickpea",
+      "pod borer",
+      "Chhattisgarh",
+      "ipm",
+      "human-review"
+    ]
+  },
+  {
+    "title": "Paddy leaf folder observation guide for Jharkhand",
+    "name": "leaf folder",
+    "crop": "paddy",
+    "region": "Jharkhand",
+    "max_dose_ml_per_l": null,
+    "guidance": "Inspect folded leaves and quantify field incidence before requesting treatment guidance.",
+    "source_name": "SasyaAI synthetic IPM evaluation reference",
+    "source_url": "https://icar.gov.in/en/agricultural-engineering/salient-technologies",
+    "source_updated_at": "2026-07-31",
+    "review_status": "synthetic_reference",
+    "tags": [
+      "paddy",
+      "leaf folder",
+      "Jharkhand",
+      "ipm",
+      "human-review"
+    ]
+  },
+  {
+    "title": "Maize fall armyworm observation guide for Jharkhand",
+    "name": "fall armyworm",
+    "crop": "maize",
+    "region": "Jharkhand",
+    "max_dose_ml_per_l": null,
+    "guidance": "Inspect whorls for fresh damage and frass; escalate uncertain observations with clear images.",
+    "source_name": "SasyaAI synthetic IPM evaluation reference",
+    "source_url": "https://icar.gov.in/en/agricultural-engineering/salient-technologies",
+    "source_updated_at": "2026-07-31",
+    "review_status": "synthetic_reference",
+    "tags": [
+      "maize",
+      "fall armyworm",
+      "Jharkhand",
+      "ipm",
+      "human-review"
+    ]
+  },
+  {
+    "title": "Banana sigatoka leaf spot observation guide for Kerala",
+    "name": "sigatoka leaf spot",
+    "crop": "banana",
+    "region": "Kerala",
+    "max_dose_ml_per_l": null,
+    "guidance": "Photograph leaf streak progression and verify sanitation guidance locally.",
+    "source_name": "SasyaAI synthetic IPM evaluation reference",
+    "source_url": "https://icar.gov.in/en/agricultural-engineering/salient-technologies",
+    "source_updated_at": "2026-07-31",
+    "review_status": "synthetic_reference",
+    "tags": [
+      "banana",
+      "sigatoka leaf spot",
+      "Kerala",
+      "ipm",
+      "human-review"
+    ]
+  },
+  {
+    "title": "Tapioca cassava mosaic observation guide for Kerala",
+    "name": "cassava mosaic",
+    "crop": "tapioca",
+    "region": "Kerala",
+    "max_dose_ml_per_l": null,
+    "guidance": "Flag mosaic and distorted leaves for clean-planting-material review.",
+    "source_name": "SasyaAI synthetic IPM evaluation reference",
+    "source_url": "https://icar.gov.in/en/agricultural-engineering/salient-technologies",
+    "source_updated_at": "2026-07-31",
+    "review_status": "synthetic_reference",
+    "tags": [
+      "tapioca",
+      "cassava mosaic",
+      "Kerala",
+      "ipm",
+      "human-review"
+    ]
   }
 ]

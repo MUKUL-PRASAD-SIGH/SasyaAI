@@ -9,14 +9,14 @@ This repository has two explicitly separated runtimes:
 
 ## What works today
 
-- FastAPI service with health, advisory, farmer, memory, and HITL queue/decision endpoints.
-- Three synthetic farmers plus crop, pest, and scheme seed knowledge.
-- Intent routing for crop planning, pest diagnosis, and scheme queries.
-- Memory ownership boundary, typed synthetic-consent preflight with purpose/scope/expiry/revocation checks, reflection results, data-driven deterministic safety checks, and a confidence-based HITL route.
+- FastAPI service with runtime health, agent registry, knowledge coverage, advisory, farmer, memory, and HITL endpoints.
+- A typed nine-role agent graph with separate production LLM calls for routing, one domain specialist, and reflection.
+- A deterministic 105-record evaluation corpus spanning 18 states and 20 crops, plus 18 synthetic farmers.
+- Memory ownership boundary, typed consent preflight, state-filtered retrieval, reflection, deterministic safety checks, and confidence-based HITL routing.
 - Local production-readiness controls: API-key authentication/RBAC when enabled, farmer assignment checks, in-process rate limits, data-minimised audit events, runtime retention, and governed local deletion requests.
-- Vite/React extension-officer dashboard for reviewing evidence, verification, trace, and pending cases.
-- Backend, component, and browser end-to-end regression suites for the supported demonstrator flow.
-- Docker Compose for the API, PostgreSQL, and Qdrant.
+- Themeable Vite/React operations cockpit for reviewing agent runs, source evidence, verification, traces, and pending cases.
+- Backend, model-contract, component, and browser end-to-end regression suites.
+- Docker Compose for the operations UI, API, PostgreSQL, and Qdrant.
 - Tests for delivered advice, low-confidence escalation, unsafe-dose blocking, and API errors.
 
 ## Production runtime
@@ -27,13 +27,13 @@ Before using `RUNTIME_MODE=production`, follow [Production Runtime](Docs/PRODUCT
 
 ## Quick start
 
-Prerequisites: Python 3.10+ and Docker Desktop for the container route. Node.js 20+ is needed only for the frontend scaffold.
+Prerequisites: Python 3.10+ and Docker Desktop for the container route. Node.js 22+ is needed only for local frontend development.
 
 ```powershell
 Copy-Item .env.example .env
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
-python -m pip install -r requirements.txt
+python -m pip install -r requirements-dev.txt
 python -m uvicorn app.main:app --app-dir backend --reload
 ```
 
@@ -41,7 +41,7 @@ The API is available at `http://127.0.0.1:8000`; interactive documentation is at
 
 ```powershell
 python -m pytest -q
-python -m ruff check backend tests
+python -m ruff check backend tests scripts
 ```
 
 To run the self-contained API container:
@@ -50,8 +50,9 @@ To run the self-contained API container:
 docker compose up --build
 ```
 
-Compose also starts PostgreSQL and Qdrant so the production stores are locally
-available. They remain unused while `RUNTIME_MODE=demo` is selected.
+Compose starts the operations UI at `http://127.0.0.1:5173`, the API at
+`http://127.0.0.1:8000`, PostgreSQL, and Qdrant. The durable stores remain
+unused while `RUNTIME_MODE=demo` is selected.
 
 ### Extension-officer dashboard
 
@@ -65,10 +66,11 @@ npm test
 npm run dev
 ```
 
-Open `http://127.0.0.1:5173`. The dashboard defaults to the local API at
-`http://127.0.0.1:8000`; change `VITE_API_BASE_URL` in `frontend/.env` only when
-using a different endpoint. It deliberately labels review-pending advice as a
-draft and records an append-only demo decision history for each case.
+Open `http://127.0.0.1:5173`. The development environment points the dashboard
+to `http://127.0.0.1:8000`; the container build uses the same-origin Nginx
+gateway. In production mode an operator can supply a role-scoped API key that
+is held in browser memory only and cleared on reload. A public deployment
+should place OIDC and a backend-for-frontend gateway in front of the API.
 
 To run the local browser test after installing its Chromium test dependency:
 
@@ -97,11 +99,11 @@ backend/        FastAPI application, contracts, workflow, and adapters
 data/seed/      Checked-in synthetic demo farmers and knowledge bases
 Docs/           Product, architecture, API, execution, security, and testing docs
 frontend/       Vite/React extension-officer dashboard
+scripts/        Deterministic evaluation-corpus tooling
 tests/          API and workflow regression tests
 ```
 
-The planned `infra/`, `ml/`, and `scripts/` areas are intentionally not yet
-created; they belong to later sandbox, vision, and production-hardening work.
+The planned `infra/` and `ml/` areas belong to later cloud and vision work.
 
 ## Safety and data use
 
@@ -120,6 +122,8 @@ The seed records are synthetic. Do not add real farmer data, credentials, Aadhaa
 - [Development Guide](Docs/DEVELOPMENT.md)
 - [Verification and Dependency Report](Docs/VERIFICATION_AND_DEPENDENCY_REPORT.md)
 - [Production Runtime](Docs/PRODUCTION_RUNTIME.md)
+- [Agent Operations](Docs/AGENT_OPERATIONS.md)
+- [Evaluation Corpus Card](data/seed/DATASET_CARD.md)
 - [Production Activation Checklist](Docs/PRODUCTION_ACTIVATION_CHECKLIST.md)
 
 ## Contributing

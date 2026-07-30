@@ -20,20 +20,23 @@ class QdrantKnowledgeStore:
 
     def __init__(self, settings: Settings) -> None:
         try:
+            from fastembed import TextEmbedding
             from qdrant_client import QdrantClient, models
-            from sentence_transformers import SentenceTransformer
         except ImportError as error:  # pragma: no cover - only reached in a production install
             raise RetrievalUnavailableError(
-                "qdrant-client and sentence-transformers are required in production mode."
+                "qdrant-client and FastEmbed are required in production mode."
             ) from error
 
         self.models = models
         self.settings = settings
         self.client = QdrantClient(url=settings.qdrant_url, api_key=settings.qdrant_api_key or None)
-        self.embedder = SentenceTransformer(settings.embedding_model)
+        self.embedder = TextEmbedding(
+            model_name=settings.embedding_model,
+            cache_dir=settings.embedding_cache_dir or None,
+        )
         self.breaker = CircuitBreaker()
         try:
-            dimensions = len(self.embedder.encode("SasyaAI vector dimension", normalize_embeddings=True))
+            dimensions = len(next(iter(self.embedder.embed(["SasyaAI vector dimension"]))))
             existing = {item.name for item in self.client.get_collections().collections}
             for collection in self.collections:
                 if collection not in existing:
@@ -46,7 +49,7 @@ class QdrantKnowledgeStore:
 
     def _vector(self, text: str) -> list[float]:
         try:
-            return self.embedder.encode(text, normalize_embeddings=True).tolist()
+            return next(iter(self.embedder.embed([text]))).tolist()
         except Exception as error:
             raise RetrievalUnavailableError("The retrieval embedding model is unavailable.") from error
 
@@ -55,14 +58,21 @@ class QdrantKnowledgeStore:
         collection: str,
         query: str,
         *,
-        filters: dict[str, str] | None = None,
+        filters: dict[str, str | list[str]] | None = None,
         limit: int = 5,
     ) -> list[KnowledgeHit]:
         if collection not in self.collections:
             raise ValueError(f"Unknown Qdrant collection: {collection}")
         vector = self._vector(query)
         conditions = [
-            self.models.FieldCondition(key=key, match=self.models.MatchValue(value=value))
+            self.models.FieldCondition(
+                key=key,
+                match=(
+                    self.models.MatchAny(any=value)
+                    if isinstance(value, list)
+                    else self.models.MatchValue(value=value)
+                ),
+            )
             for key, value in (filters or {}).items()
         ]
         query_filter = self.models.Filter(must=conditions) if conditions else None
@@ -229,3 +239,52 @@ class QdrantKnowledgeStore:
             )
         except ProviderUnavailableError as error:
             raise RetrievalUnavailableError("Qdrant episode deletion failed.") from error
+
+    def stats(self) -> dict[str, object]:
+        """Return bounded collection and coverage metadata for operations UI."""
+
+        def call() -> dict[str, object]:
+            counts: dict[str, int] = {}
+            regions: set[str] = set()
+            crops: set[str] = set()
+            for collection in self.collections:
+                if collection == "farmer_memory":
+                    continue
+                counts[collection] = int(
+                    self.client.count(collection_name=collection, exact=True).count
+                )
+                offset = None
+                while True:
+                    points, offset = self.client.scroll(
+                        collection_name=collection,
+                        limit=256,
+                        offset=offset,
+                        with_payload=["state", "region", "crop"],
+                        with_vectors=False,
+                    )
+                    for point in points:
+                        payload = point.payload or {}
+                        region = payload.get("state", payload.get("region"))
+                        crop = payload.get("crop")
+                        if region:
+                            regions.add(str(region))
+                        if crop:
+                            crops.add(str(crop))
+                    if offset is None:
+                        break
+            return {
+                "collections": counts,
+                "total_documents": sum(counts.values()),
+                "regions": len(regions),
+                "crops": len(crops),
+            }
+
+        try:
+            return retry_provider_call(
+                call,
+                breaker=self.breaker,
+                retries=self.settings.tool_max_retries,
+                retryable=(Exception,),
+            )
+        except ProviderUnavailableError as error:
+            raise RetrievalUnavailableError("Qdrant coverage statistics are unavailable.") from error

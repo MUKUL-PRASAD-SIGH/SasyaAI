@@ -2,8 +2,9 @@
 
 Base URL for local development: `http://127.0.0.1:8000`.
 
-The local API operates only on checked-in synthetic data. In development it
-uses an explicit local bypass. When `AUTH_REQUIRED=true`, all `/api/v1/*`
+Demo mode operates only on checked-in synthetic data. Production mode uses
+live provider adapters and durable stores. In development the API uses an
+explicit local bypass. When `AUTH_REQUIRED=true`, all `/api/v1/*`
 routes require an `X-API-Key` configured through `AUTH_PRINCIPALS_JSON`; roles
 and farmer assignments are enforced, protected actions are rate-limited, and
 data-minimised audit metadata is retained locally. This API-key adapter is a
@@ -21,7 +22,9 @@ testable gateway boundary, not a replacement for production OAuth2/OIDC/JWT.
 
 Set `AUTH_REQUIRED=true` and provide `AUTH_PRINCIPALS_JSON` only from a secret
 manager. It is a JSON array of API-key records with `subject`, `roles`, and
-`allowed_farmer_ids`; never commit it or expose an API key to the dashboard.
+`allowed_farmer_ids`; never commit it or compile a key into the dashboard.
+The internal operations UI accepts a role-scoped key into memory only and
+clears it on reload.
 The allowed roles are `farmer`, `extension_officer`, and `system_admin` for
 the currently implemented protected endpoints. Replace this adapter with an
 approved OIDC/JWT gateway before production.
@@ -34,13 +37,32 @@ Returns service health without exposing dependencies or configuration.
 {
   "status": "ok",
   "service": "SasyaAI",
-  "environment": "development"
+  "environment": "development",
+  "runtime_mode": "demo",
+  "agent_execution": "deterministic_fallback"
 }
 ```
 
+## `GET /api/v1/agents`
+
+Returns the governed nine-role registry, responsibility boundaries, production
+model label, and the single permitted memory writer.
+
+## `GET /api/v1/knowledge/stats`
+
+Returns collection counts and region/crop coverage without source content or
+farmer PII.
+
+## `GET /api/v1/demo/farmers`
+
+Returns non-sensitive summaries for the 18-profile synthetic evaluation cohort.
+It returns `404` in production so real farmers cannot be enumerated.
+
 ## `POST /api/v1/query`
 
-Checks a typed synthetic consent fixture before any profile read, then classifies the request, retrieves demo context, runs reflection and hard checks, appends an episode through the Memory boundary, and either returns advice or creates an HITL case. The consent result records static-fixture provenance internally; it does not call a live provider.
+Checks consent before any profile read, runs the selected runtime's typed agent
+graph, appends an episode through the Memory boundary, and either returns
+verified advice or creates an HITL case.
 
 Request:
 
@@ -70,6 +92,12 @@ Delivered response excerpt:
   "evidence": [{"source": "crop_kb", "title": "Soybean suitability...", "score": 0.75}],
   "reflection": {"status": "pass", "notes": ["Response addresses the requested intent."]},
   "verification": [{"name": "water_budget", "status": "pass", "message": "..."}],
+  "agent_runs": [{
+    "agent_id": "safety_verifier",
+    "execution_mode": "deterministic",
+    "duration_ms": 1,
+    "summary": "Applied non-LLM delivery gates."
+  }],
   "trace": [{"stage": "verifier", "status": "completed", "detail": "..."}],
   "hitl_case_id": null
 }
@@ -79,13 +107,16 @@ When advice requires review, `status` is `requires_human_review` and `hitl_case_
 
 ## `GET /api/v1/farmers/{farmer_id}`
 
-Returns a synthetic farmer twin for the demo only after a consent preflight. Example IDs:
+Returns a synthetic farmer twin for the demo only after a consent preflight.
+Example IDs include:
 
 - `AGR_MH_001234`
 - `AGR_TG_005678`
 - `AGR_KA_009012`
 
-Production equivalent: return only fields authorised by caller role, consent, purpose, and assignment; sensitive fields must be masked or omitted by default.
+The full demo cohort is discoverable only through `/api/v1/demo/farmers`.
+Production returns only fields authorised by caller role, consent, purpose, and
+assignment; sensitive fields must be masked or omitted by default.
 
 ## `POST /api/v1/memory/search`
 
@@ -151,6 +182,15 @@ and HITL runtime records, then creates a `pending_external_cleanup` receipt.
 Checked-in synthetic seed fixtures deliberately remain immutable. A human must
 complete and evidence deletion with every real provider, backup, and retention
 owner before closing a production request.
+
+## Production-only operations
+
+- `POST /api/v1/farmers/{farmer_id}/sync` refreshes a consent-gated AgriStack
+  profile into PostgreSQL.
+- `POST /api/v1/knowledge/documents` ingests a reviewer-attributed document
+  into a governed Qdrant collection.
+
+Both return `404` in demo mode and require appropriate roles.
 
 ## Planned API surface
 

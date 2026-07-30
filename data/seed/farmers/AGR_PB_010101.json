@@ -1,0 +1,43 @@
+{
+  "farmer_id": "AGR_PB_010101",
+  "name": "Gurpreet Kaur",
+  "state": "Punjab",
+  "district": "Ludhiana",
+  "preferred_language": "pa",
+  "synthetic_data": true,
+  "consent": {
+    "advisory": true,
+    "consent_id": "SYN_CONSENT_PB_010101",
+    "status": "granted",
+    "purpose": "agricultural_advisory",
+    "scopes": [
+      "farmer_profile",
+      "advisory",
+      "advisory_memory"
+    ],
+    "granted_at": "2026-07-01T09:00:00Z",
+    "expires_at": "2030-12-31T23:59:59Z",
+    "revoked_at": null
+  },
+  "digital_twin": {
+    "season": "Rabi",
+    "current_crop": "wheat",
+    "soil_fertility": "moderate",
+    "water_budget_mm": 280,
+    "budget_inr": 71000,
+    "eligible_schemes": [
+      "PM-KISAN",
+      "PMFBY",
+      "Soil Health Card"
+    ],
+    "weather_alert": false,
+    "farm_size_hectares": 1.2,
+    "soil_type": "loam",
+    "irrigation_type": "mixed",
+    "risk_flags": []
+  },
+  "location": {
+    "latitude": 30.9,
+    "longitude": 75.85
+  }
+}

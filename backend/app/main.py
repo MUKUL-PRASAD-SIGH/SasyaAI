@@ -11,9 +11,12 @@ from fastapi.responses import JSONResponse
 from app.core.config import Settings, get_settings
 from app.models.advisory import (
     AdvisoryResponse,
+    AgentDescriptor,
+    DemoFarmerSummary,
     HITLCase,
     HITLDecisionRequest,
     KnowledgeIngestRequest,
+    KnowledgeStats,
     MemorySearchRequest,
     QueryRequest,
 )
@@ -25,6 +28,7 @@ from app.services.advisory import (
     HITLCaseNotPendingError,
     HITLCaseSafetyBlockedError,
 )
+from app.services.agents import agent_descriptors
 from app.services.consent import ConsentAdapterUnavailableError
 from app.services.memory import LocalAuditLog, LocalDeletionRequestStore, RuntimeStateError
 from app.services.observability import configure_observability
@@ -198,7 +202,47 @@ def create_app(runtime_dir: Path | None = None, settings: Settings | None = None
             "status": "ok",
             "service": settings.app_name,
             "environment": settings.app_environment,
+            "runtime_mode": settings.runtime_mode,
+            "agent_execution": (
+                "gemini_multi_agent"
+                if settings.runtime_mode == "production"
+                else "deterministic_fallback"
+            ),
         }
+
+    @app.get("/api/v1/agents", response_model=list[AgentDescriptor], tags=["agents"])
+    def list_agents(
+        _: Principal = Depends(
+            require_roles(Role.FARMER, Role.EXTENSION_OFFICER, Role.SYSTEM_ADMIN)
+        ),
+    ) -> list[AgentDescriptor]:
+        model = settings.gemini_model if settings.runtime_mode == "production" else None
+        return agent_descriptors(model)
+
+    @app.get("/api/v1/knowledge/stats", response_model=KnowledgeStats, tags=["knowledge"])
+    def knowledge_stats(
+        _: Principal = Depends(
+            require_roles(Role.FARMER, Role.EXTENSION_OFFICER, Role.SYSTEM_ADMIN)
+        ),
+    ) -> KnowledgeStats:
+        return service().knowledge_stats()
+
+    @app.get(
+        "/api/v1/demo/farmers",
+        response_model=list[DemoFarmerSummary],
+        tags=["farmers"],
+    )
+    def list_demo_farmers(
+        _: Principal = Depends(
+            require_roles(Role.FARMER, Role.EXTENSION_OFFICER, Role.SYSTEM_ADMIN)
+        ),
+    ) -> list[DemoFarmerSummary]:
+        if settings.runtime_mode != "demo":
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Synthetic farmer enumeration is disabled in production.",
+            )
+        return service().list_demo_farmers()
 
     @app.post("/api/v1/query", response_model=AdvisoryResponse, tags=["advisory"])
     def submit_query(

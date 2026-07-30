@@ -4,8 +4,10 @@ import httpx
 import pytest
 from app.core.config import Settings
 from app.main import create_app
-from app.models.advisory import Intent
-from app.services.llm import GeminiProvider, LLMRequest
+from app.models.advisory import Intent, KnowledgeHit
+from app.services.llm import AgentPlan, GeminiProvider, LLMRequest
+from app.services.production import ProductionAdvisoryService
+from fastembed import TextEmbedding
 
 
 def test_production_mode_refuses_to_start_with_missing_live_dependencies(tmp_path):
@@ -19,6 +21,48 @@ def test_production_mode_refuses_to_start_with_missing_live_dependencies(tmp_pat
     assert "AUTH_REQUIRED=true" in message
     assert "MARKET_API_KEY" in message
     assert "OTEL_EXPORTER_OTLP_ENDPOINT" in message
+
+
+def test_default_embedding_model_is_supported_by_cpu_only_fastembed():
+    supported = {item["model"]: item for item in TextEmbedding.list_supported_models()}
+    model = supported[Settings().embedding_model]
+
+    assert model["dim"] == 384
+    assert model["size_in_GB"] < 0.5
+    assert "Multilingual" in model["description"]
+
+
+def test_production_verifier_fails_closed_on_incomplete_required_weather():
+    service = ProductionAdvisoryService.__new__(ProductionAdvisoryService)
+    plan = AgentPlan(
+        intent=Intent.CROP_PLAN,
+        recommendation="Review the cited crop option.",
+        explanation="The option is supported by the retrieved source.",
+        confidence=0.81,
+        evidence_ids=["crop-123"],
+    )
+    evidence = [
+        KnowledgeHit(
+            source="crop_kb",
+            title="Reviewed crop option",
+            score=0.88,
+            metadata={"document_id": "crop-123"},
+        )
+    ]
+
+    checks = service._verify(
+        plan,
+        evidence,
+        {"provider": "open_meteo", "freshness": "live", "data": {}},
+        {"provider": "not_requested", "freshness": "not_applicable", "data": {}},
+        Intent.CROP_PLAN,
+        needs_weather=True,
+        needs_market=False,
+    )
+
+    weather = next(check for check in checks if check.name == "weather_safety")
+    assert weather.status == "fail"
+    assert "incomplete" in weather.message
 
 
 def test_gemini_adapter_requires_typed_grounded_json_without_network_access():
@@ -69,3 +113,71 @@ def test_gemini_adapter_requires_typed_grounded_json_without_network_access():
 
     assert result.intent is Intent.CROP_PLAN
     assert result.evidence_ids == ["crop-123"]
+
+
+def test_gemini_adapter_routes_and_reflects_through_separate_typed_calls():
+    instructions: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        payload = json.loads(request.content)
+        instruction = payload["systemInstruction"]["parts"][0]["text"]
+        instructions.append(instruction)
+        if "Intent Router" in instruction:
+            result = {
+                "intent": "diagnose",
+                "specialist_agent": "pest_diagnosis_agent",
+                "retrieval_collections": ["pest_kb"],
+                "needs_weather": True,
+                "needs_market": False,
+                "route_summary": "Route the crop symptom report to cautious pest review.",
+            }
+        else:
+            result = {
+                "status": "revise",
+                "notes": ["Remove unsupported treatment specificity."],
+                "revised_recommendation": "Capture a clear image and seek extension review.",
+                "revised_explanation": "The supplied evidence does not confirm a diagnosis.",
+                "confidence_delta": -0.1,
+                "needs_human_review": True,
+            }
+        return httpx.Response(
+            200,
+            json={
+                "candidates": [
+                    {"content": {"parts": [{"text": json.dumps(result)}]}}
+                ]
+            },
+        )
+
+    provider = GeminiProvider(
+        Settings(gemini_api_key="test-key"),
+        client=httpx.Client(transport=httpx.MockTransport(handler)),
+    )
+    request = LLMRequest(
+        query="What are these spots?",
+        language="en",
+        farmer_context={"state": "Maharashtra", "crop": "cotton"},
+        evidence=[{"id": "pest-123", "title": "Reviewed observation guide"}],
+        tool_context={"weather": {"freshness": "live"}},
+    )
+
+    graph = provider.route(request)
+    review = provider.reflect(
+        request,
+        AgentPlan.model_validate(
+            {
+                "intent": "diagnose",
+                "recommendation": "Use a treatment.",
+                "explanation": "The symptom may be a pest.",
+                "confidence": 0.62,
+                "evidence_ids": ["pest-123"],
+                "needs_human_review": False,
+                "safety_notes": [],
+            }
+        ),
+    )
+
+    assert graph.specialist_agent == "pest_diagnosis_agent"
+    assert review.status == "revise"
+    assert review.needs_human_review is True
+    assert len(instructions) == 2

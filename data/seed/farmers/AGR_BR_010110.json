@@ -1,0 +1,43 @@
+{
+  "farmer_id": "AGR_BR_010110",
+  "name": "Poonam Singh",
+  "state": "Bihar",
+  "district": "Purnia",
+  "preferred_language": "hi",
+  "synthetic_data": true,
+  "consent": {
+    "advisory": true,
+    "consent_id": "SYN_CONSENT_BR_010110",
+    "status": "granted",
+    "purpose": "agricultural_advisory",
+    "scopes": [
+      "farmer_profile",
+      "advisory",
+      "advisory_memory"
+    ],
+    "granted_at": "2026-07-01T09:00:00Z",
+    "expires_at": "2030-12-31T23:59:59Z",
+    "revoked_at": null
+  },
+  "digital_twin": {
+    "season": "Kharif",
+    "current_crop": "maize",
+    "soil_fertility": "moderate",
+    "water_budget_mm": 280,
+    "budget_inr": 63000,
+    "eligible_schemes": [
+      "PM-KISAN",
+      "PMFBY",
+      "Soil Health Card"
+    ],
+    "weather_alert": false,
+    "farm_size_hectares": 3.3,
+    "soil_type": "well-drained loam",
+    "irrigation_type": "mixed",
+    "risk_flags": []
+  },
+  "location": {
+    "latitude": 25.78,
+    "longitude": 87.47
+  }
+}

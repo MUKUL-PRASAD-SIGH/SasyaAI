@@ -1,38 +1,1028 @@
 [
   {
-    "title": "Soybean suitability for moderate-fertility, water-constrained Kharif farms",
+    "title": "Soybean planning reference for Maharashtra",
     "crop": "soybean",
     "region": "Maharashtra",
-    "soil_type": "black cotton soil",
+    "soil_type": "black soil",
     "water_need_mm": 240,
     "estimated_input_cost_inr": 47000,
-    "guidance": "Use certified seed, maintain drainage, and keep irrigation within the farm water budget."
+    "guidance": "Prioritise drainage, certified seed, and local variety guidance.",
+    "source_name": "SasyaAI synthetic scenario using ICAR/OGD crop taxonomy",
+    "source_url": "https://www.data.gov.in/catalog/field-crop-varieties-released-central-release",
+    "source_updated_at": "2014-02-13",
+    "review_status": "synthetic_reference",
+    "tags": [
+      "soybean",
+      "Maharashtra",
+      "planning",
+      "synthetic-evaluation"
+    ]
   },
   {
-    "title": "Cotton water and market risk profile",
+    "title": "Cotton planning reference for Maharashtra",
     "crop": "cotton",
     "region": "Maharashtra",
-    "soil_type": "black cotton soil",
+    "soil_type": "black soil",
     "water_need_mm": 340,
     "estimated_input_cost_inr": 65000,
-    "guidance": "Consider higher water use and local price volatility before expanding area."
+    "guidance": "Check water, pest surveillance, and price risk before expanding area.",
+    "source_name": "SasyaAI synthetic scenario using ICAR/OGD crop taxonomy",
+    "source_url": "https://www.data.gov.in/catalog/field-crop-varieties-released-central-release",
+    "source_updated_at": "2014-02-13",
+    "review_status": "synthetic_reference",
+    "tags": [
+      "cotton",
+      "Maharashtra",
+      "planning",
+      "synthetic-evaluation"
+    ]
   },
   {
-    "title": "Millet resilience guidance",
+    "title": "Sorghum planning reference for Maharashtra",
+    "crop": "sorghum",
+    "region": "Maharashtra",
+    "soil_type": "medium black soil",
+    "water_need_mm": 190,
+    "estimated_input_cost_inr": 35000,
+    "guidance": "Use locally recommended seed and conserve early-season moisture.",
+    "source_name": "SasyaAI synthetic scenario using ICAR/OGD crop taxonomy",
+    "source_url": "https://www.data.gov.in/catalog/field-crop-varieties-released-central-release",
+    "source_updated_at": "2014-02-13",
+    "review_status": "synthetic_reference",
+    "tags": [
+      "sorghum",
+      "Maharashtra",
+      "planning",
+      "synthetic-evaluation"
+    ]
+  },
+  {
+    "title": "Millet planning reference for Karnataka",
     "crop": "millet",
     "region": "Karnataka",
     "soil_type": "red loam",
     "water_need_mm": 180,
     "estimated_input_cost_inr": 36000,
-    "guidance": "Millets are suitable for lower water availability when local market access is confirmed."
+    "guidance": "Confirm local market access and use a locally suitable millet variety.",
+    "source_name": "SasyaAI synthetic scenario using ICAR/OGD crop taxonomy",
+    "source_url": "https://www.data.gov.in/catalog/field-crop-varieties-released-central-release",
+    "source_updated_at": "2014-02-13",
+    "review_status": "synthetic_reference",
+    "tags": [
+      "millet",
+      "Karnataka",
+      "planning",
+      "synthetic-evaluation"
+    ]
   },
   {
-    "title": "Paddy suitability for irrigated Kharif farms",
+    "title": "Maize planning reference for Karnataka",
+    "crop": "maize",
+    "region": "Karnataka",
+    "soil_type": "well-drained loam",
+    "water_need_mm": 260,
+    "estimated_input_cost_inr": 48000,
+    "guidance": "Plan timely sowing, drainage, and fall-armyworm scouting.",
+    "source_name": "SasyaAI synthetic scenario using ICAR/OGD crop taxonomy",
+    "source_url": "https://www.data.gov.in/catalog/field-crop-varieties-released-central-release",
+    "source_updated_at": "2014-02-13",
+    "review_status": "synthetic_reference",
+    "tags": [
+      "maize",
+      "Karnataka",
+      "planning",
+      "synthetic-evaluation"
+    ]
+  },
+  {
+    "title": "Groundnut planning reference for Karnataka",
+    "crop": "groundnut",
+    "region": "Karnataka",
+    "soil_type": "sandy loam",
+    "water_need_mm": 230,
+    "estimated_input_cost_inr": 52000,
+    "guidance": "Avoid waterlogging and confirm seed treatment guidance locally.",
+    "source_name": "SasyaAI synthetic scenario using ICAR/OGD crop taxonomy",
+    "source_url": "https://www.data.gov.in/catalog/field-crop-varieties-released-central-release",
+    "source_updated_at": "2014-02-13",
+    "review_status": "synthetic_reference",
+    "tags": [
+      "groundnut",
+      "Karnataka",
+      "planning",
+      "synthetic-evaluation"
+    ]
+  },
+  {
+    "title": "Paddy planning reference for Telangana",
     "crop": "paddy",
     "region": "Telangana",
-    "soil_type": "alluvial loam",
+    "soil_type": "clay loam",
     "water_need_mm": 320,
     "estimated_input_cost_inr": 70000,
-    "guidance": "Retain drainage and irrigation records, and confirm local weather conditions before transplanting."
+    "guidance": "Confirm irrigation reliability and use locally recommended establishment methods.",
+    "source_name": "SasyaAI synthetic scenario using ICAR/OGD crop taxonomy",
+    "source_url": "https://www.data.gov.in/catalog/field-crop-varieties-released-central-release",
+    "source_updated_at": "2014-02-13",
+    "review_status": "synthetic_reference",
+    "tags": [
+      "paddy",
+      "Telangana",
+      "planning",
+      "synthetic-evaluation"
+    ]
+  },
+  {
+    "title": "Cotton planning reference for Telangana",
+    "crop": "cotton",
+    "region": "Telangana",
+    "soil_type": "black soil",
+    "water_need_mm": 340,
+    "estimated_input_cost_inr": 65000,
+    "guidance": "Check water, pest surveillance, and price risk before expanding area.",
+    "source_name": "SasyaAI synthetic scenario using ICAR/OGD crop taxonomy",
+    "source_url": "https://www.data.gov.in/catalog/field-crop-varieties-released-central-release",
+    "source_updated_at": "2014-02-13",
+    "review_status": "synthetic_reference",
+    "tags": [
+      "cotton",
+      "Telangana",
+      "planning",
+      "synthetic-evaluation"
+    ]
+  },
+  {
+    "title": "Maize planning reference for Telangana",
+    "crop": "maize",
+    "region": "Telangana",
+    "soil_type": "well-drained loam",
+    "water_need_mm": 260,
+    "estimated_input_cost_inr": 48000,
+    "guidance": "Plan timely sowing, drainage, and fall-armyworm scouting.",
+    "source_name": "SasyaAI synthetic scenario using ICAR/OGD crop taxonomy",
+    "source_url": "https://www.data.gov.in/catalog/field-crop-varieties-released-central-release",
+    "source_updated_at": "2014-02-13",
+    "review_status": "synthetic_reference",
+    "tags": [
+      "maize",
+      "Telangana",
+      "planning",
+      "synthetic-evaluation"
+    ]
+  },
+  {
+    "title": "Wheat planning reference for Punjab",
+    "crop": "wheat",
+    "region": "Punjab",
+    "soil_type": "loam",
+    "water_need_mm": 260,
+    "estimated_input_cost_inr": 56000,
+    "guidance": "Align sowing window and irrigation scheduling with local advisories.",
+    "source_name": "SasyaAI synthetic scenario using ICAR/OGD crop taxonomy",
+    "source_url": "https://www.data.gov.in/catalog/field-crop-varieties-released-central-release",
+    "source_updated_at": "2014-02-13",
+    "review_status": "synthetic_reference",
+    "tags": [
+      "wheat",
+      "Punjab",
+      "planning",
+      "synthetic-evaluation"
+    ]
+  },
+  {
+    "title": "Paddy planning reference for Punjab",
+    "crop": "paddy",
+    "region": "Punjab",
+    "soil_type": "clay loam",
+    "water_need_mm": 320,
+    "estimated_input_cost_inr": 70000,
+    "guidance": "Confirm irrigation reliability and use locally recommended establishment methods.",
+    "source_name": "SasyaAI synthetic scenario using ICAR/OGD crop taxonomy",
+    "source_url": "https://www.data.gov.in/catalog/field-crop-varieties-released-central-release",
+    "source_updated_at": "2014-02-13",
+    "review_status": "synthetic_reference",
+    "tags": [
+      "paddy",
+      "Punjab",
+      "planning",
+      "synthetic-evaluation"
+    ]
+  },
+  {
+    "title": "Maize planning reference for Punjab",
+    "crop": "maize",
+    "region": "Punjab",
+    "soil_type": "well-drained loam",
+    "water_need_mm": 260,
+    "estimated_input_cost_inr": 48000,
+    "guidance": "Plan timely sowing, drainage, and fall-armyworm scouting.",
+    "source_name": "SasyaAI synthetic scenario using ICAR/OGD crop taxonomy",
+    "source_url": "https://www.data.gov.in/catalog/field-crop-varieties-released-central-release",
+    "source_updated_at": "2014-02-13",
+    "review_status": "synthetic_reference",
+    "tags": [
+      "maize",
+      "Punjab",
+      "planning",
+      "synthetic-evaluation"
+    ]
+  },
+  {
+    "title": "Wheat planning reference for Haryana",
+    "crop": "wheat",
+    "region": "Haryana",
+    "soil_type": "loam",
+    "water_need_mm": 260,
+    "estimated_input_cost_inr": 56000,
+    "guidance": "Align sowing window and irrigation scheduling with local advisories.",
+    "source_name": "SasyaAI synthetic scenario using ICAR/OGD crop taxonomy",
+    "source_url": "https://www.data.gov.in/catalog/field-crop-varieties-released-central-release",
+    "source_updated_at": "2014-02-13",
+    "review_status": "synthetic_reference",
+    "tags": [
+      "wheat",
+      "Haryana",
+      "planning",
+      "synthetic-evaluation"
+    ]
+  },
+  {
+    "title": "Mustard planning reference for Haryana",
+    "crop": "mustard",
+    "region": "Haryana",
+    "soil_type": "sandy loam",
+    "water_need_mm": 190,
+    "estimated_input_cost_inr": 39000,
+    "guidance": "Use a locally recommended variety and monitor flowering-stage stress.",
+    "source_name": "SasyaAI synthetic scenario using ICAR/OGD crop taxonomy",
+    "source_url": "https://www.data.gov.in/catalog/field-crop-varieties-released-central-release",
+    "source_updated_at": "2014-02-13",
+    "review_status": "synthetic_reference",
+    "tags": [
+      "mustard",
+      "Haryana",
+      "planning",
+      "synthetic-evaluation"
+    ]
+  },
+  {
+    "title": "Pearl Millet planning reference for Haryana",
+    "crop": "pearl millet",
+    "region": "Haryana",
+    "soil_type": "sandy loam",
+    "water_need_mm": 160,
+    "estimated_input_cost_inr": 32000,
+    "guidance": "Prefer drought-resilient local varieties and moisture conservation.",
+    "source_name": "SasyaAI synthetic scenario using ICAR/OGD crop taxonomy",
+    "source_url": "https://www.data.gov.in/catalog/field-crop-varieties-released-central-release",
+    "source_updated_at": "2014-02-13",
+    "review_status": "synthetic_reference",
+    "tags": [
+      "pearl millet",
+      "Haryana",
+      "planning",
+      "synthetic-evaluation"
+    ]
+  },
+  {
+    "title": "Wheat planning reference for Uttar Pradesh",
+    "crop": "wheat",
+    "region": "Uttar Pradesh",
+    "soil_type": "loam",
+    "water_need_mm": 260,
+    "estimated_input_cost_inr": 56000,
+    "guidance": "Align sowing window and irrigation scheduling with local advisories.",
+    "source_name": "SasyaAI synthetic scenario using ICAR/OGD crop taxonomy",
+    "source_url": "https://www.data.gov.in/catalog/field-crop-varieties-released-central-release",
+    "source_updated_at": "2014-02-13",
+    "review_status": "synthetic_reference",
+    "tags": [
+      "wheat",
+      "Uttar Pradesh",
+      "planning",
+      "synthetic-evaluation"
+    ]
+  },
+  {
+    "title": "Potato planning reference for Uttar Pradesh",
+    "crop": "potato",
+    "region": "Uttar Pradesh",
+    "soil_type": "friable loam",
+    "water_need_mm": 300,
+    "estimated_input_cost_inr": 85000,
+    "guidance": "Confirm seed-tuber health, storage access, and market timing.",
+    "source_name": "SasyaAI synthetic scenario using ICAR/OGD crop taxonomy",
+    "source_url": "https://www.data.gov.in/catalog/field-crop-varieties-released-central-release",
+    "source_updated_at": "2014-02-13",
+    "review_status": "synthetic_reference",
+    "tags": [
+      "potato",
+      "Uttar Pradesh",
+      "planning",
+      "synthetic-evaluation"
+    ]
+  },
+  {
+    "title": "Sugarcane planning reference for Uttar Pradesh",
+    "crop": "sugarcane",
+    "region": "Uttar Pradesh",
+    "soil_type": "deep loam",
+    "water_need_mm": 950,
+    "estimated_input_cost_inr": 120000,
+    "guidance": "Treat this high-water option as infeasible without assured irrigation.",
+    "source_name": "SasyaAI synthetic scenario using ICAR/OGD crop taxonomy",
+    "source_url": "https://www.data.gov.in/catalog/field-crop-varieties-released-central-release",
+    "source_updated_at": "2014-02-13",
+    "review_status": "synthetic_reference",
+    "tags": [
+      "sugarcane",
+      "Uttar Pradesh",
+      "planning",
+      "synthetic-evaluation"
+    ]
+  },
+  {
+    "title": "Soybean planning reference for Madhya Pradesh",
+    "crop": "soybean",
+    "region": "Madhya Pradesh",
+    "soil_type": "black soil",
+    "water_need_mm": 240,
+    "estimated_input_cost_inr": 47000,
+    "guidance": "Prioritise drainage, certified seed, and local variety guidance.",
+    "source_name": "SasyaAI synthetic scenario using ICAR/OGD crop taxonomy",
+    "source_url": "https://www.data.gov.in/catalog/field-crop-varieties-released-central-release",
+    "source_updated_at": "2014-02-13",
+    "review_status": "synthetic_reference",
+    "tags": [
+      "soybean",
+      "Madhya Pradesh",
+      "planning",
+      "synthetic-evaluation"
+    ]
+  },
+  {
+    "title": "Wheat planning reference for Madhya Pradesh",
+    "crop": "wheat",
+    "region": "Madhya Pradesh",
+    "soil_type": "loam",
+    "water_need_mm": 260,
+    "estimated_input_cost_inr": 56000,
+    "guidance": "Align sowing window and irrigation scheduling with local advisories.",
+    "source_name": "SasyaAI synthetic scenario using ICAR/OGD crop taxonomy",
+    "source_url": "https://www.data.gov.in/catalog/field-crop-varieties-released-central-release",
+    "source_updated_at": "2014-02-13",
+    "review_status": "synthetic_reference",
+    "tags": [
+      "wheat",
+      "Madhya Pradesh",
+      "planning",
+      "synthetic-evaluation"
+    ]
+  },
+  {
+    "title": "Chickpea planning reference for Madhya Pradesh",
+    "crop": "chickpea",
+    "region": "Madhya Pradesh",
+    "soil_type": "well-drained loam",
+    "water_need_mm": 180,
+    "estimated_input_cost_inr": 38000,
+    "guidance": "Avoid waterlogging and confirm wilt-resistant local varieties.",
+    "source_name": "SasyaAI synthetic scenario using ICAR/OGD crop taxonomy",
+    "source_url": "https://www.data.gov.in/catalog/field-crop-varieties-released-central-release",
+    "source_updated_at": "2014-02-13",
+    "review_status": "synthetic_reference",
+    "tags": [
+      "chickpea",
+      "Madhya Pradesh",
+      "planning",
+      "synthetic-evaluation"
+    ]
+  },
+  {
+    "title": "Pearl Millet planning reference for Rajasthan",
+    "crop": "pearl millet",
+    "region": "Rajasthan",
+    "soil_type": "sandy loam",
+    "water_need_mm": 160,
+    "estimated_input_cost_inr": 32000,
+    "guidance": "Prefer drought-resilient local varieties and moisture conservation.",
+    "source_name": "SasyaAI synthetic scenario using ICAR/OGD crop taxonomy",
+    "source_url": "https://www.data.gov.in/catalog/field-crop-varieties-released-central-release",
+    "source_updated_at": "2014-02-13",
+    "review_status": "synthetic_reference",
+    "tags": [
+      "pearl millet",
+      "Rajasthan",
+      "planning",
+      "synthetic-evaluation"
+    ]
+  },
+  {
+    "title": "Mustard planning reference for Rajasthan",
+    "crop": "mustard",
+    "region": "Rajasthan",
+    "soil_type": "sandy loam",
+    "water_need_mm": 190,
+    "estimated_input_cost_inr": 39000,
+    "guidance": "Use a locally recommended variety and monitor flowering-stage stress.",
+    "source_name": "SasyaAI synthetic scenario using ICAR/OGD crop taxonomy",
+    "source_url": "https://www.data.gov.in/catalog/field-crop-varieties-released-central-release",
+    "source_updated_at": "2014-02-13",
+    "review_status": "synthetic_reference",
+    "tags": [
+      "mustard",
+      "Rajasthan",
+      "planning",
+      "synthetic-evaluation"
+    ]
+  },
+  {
+    "title": "Chickpea planning reference for Rajasthan",
+    "crop": "chickpea",
+    "region": "Rajasthan",
+    "soil_type": "well-drained loam",
+    "water_need_mm": 180,
+    "estimated_input_cost_inr": 38000,
+    "guidance": "Avoid waterlogging and confirm wilt-resistant local varieties.",
+    "source_name": "SasyaAI synthetic scenario using ICAR/OGD crop taxonomy",
+    "source_url": "https://www.data.gov.in/catalog/field-crop-varieties-released-central-release",
+    "source_updated_at": "2014-02-13",
+    "review_status": "synthetic_reference",
+    "tags": [
+      "chickpea",
+      "Rajasthan",
+      "planning",
+      "synthetic-evaluation"
+    ]
+  },
+  {
+    "title": "Groundnut planning reference for Gujarat",
+    "crop": "groundnut",
+    "region": "Gujarat",
+    "soil_type": "sandy loam",
+    "water_need_mm": 230,
+    "estimated_input_cost_inr": 52000,
+    "guidance": "Avoid waterlogging and confirm seed treatment guidance locally.",
+    "source_name": "SasyaAI synthetic scenario using ICAR/OGD crop taxonomy",
+    "source_url": "https://www.data.gov.in/catalog/field-crop-varieties-released-central-release",
+    "source_updated_at": "2014-02-13",
+    "review_status": "synthetic_reference",
+    "tags": [
+      "groundnut",
+      "Gujarat",
+      "planning",
+      "synthetic-evaluation"
+    ]
+  },
+  {
+    "title": "Cotton planning reference for Gujarat",
+    "crop": "cotton",
+    "region": "Gujarat",
+    "soil_type": "black soil",
+    "water_need_mm": 340,
+    "estimated_input_cost_inr": 65000,
+    "guidance": "Check water, pest surveillance, and price risk before expanding area.",
+    "source_name": "SasyaAI synthetic scenario using ICAR/OGD crop taxonomy",
+    "source_url": "https://www.data.gov.in/catalog/field-crop-varieties-released-central-release",
+    "source_updated_at": "2014-02-13",
+    "review_status": "synthetic_reference",
+    "tags": [
+      "cotton",
+      "Gujarat",
+      "planning",
+      "synthetic-evaluation"
+    ]
+  },
+  {
+    "title": "Pearl Millet planning reference for Gujarat",
+    "crop": "pearl millet",
+    "region": "Gujarat",
+    "soil_type": "sandy loam",
+    "water_need_mm": 160,
+    "estimated_input_cost_inr": 32000,
+    "guidance": "Prefer drought-resilient local varieties and moisture conservation.",
+    "source_name": "SasyaAI synthetic scenario using ICAR/OGD crop taxonomy",
+    "source_url": "https://www.data.gov.in/catalog/field-crop-varieties-released-central-release",
+    "source_updated_at": "2014-02-13",
+    "review_status": "synthetic_reference",
+    "tags": [
+      "pearl millet",
+      "Gujarat",
+      "planning",
+      "synthetic-evaluation"
+    ]
+  },
+  {
+    "title": "Paddy planning reference for Tamil Nadu",
+    "crop": "paddy",
+    "region": "Tamil Nadu",
+    "soil_type": "clay loam",
+    "water_need_mm": 320,
+    "estimated_input_cost_inr": 70000,
+    "guidance": "Confirm irrigation reliability and use locally recommended establishment methods.",
+    "source_name": "SasyaAI synthetic scenario using ICAR/OGD crop taxonomy",
+    "source_url": "https://www.data.gov.in/catalog/field-crop-varieties-released-central-release",
+    "source_updated_at": "2014-02-13",
+    "review_status": "synthetic_reference",
+    "tags": [
+      "paddy",
+      "Tamil Nadu",
+      "planning",
+      "synthetic-evaluation"
+    ]
+  },
+  {
+    "title": "Groundnut planning reference for Tamil Nadu",
+    "crop": "groundnut",
+    "region": "Tamil Nadu",
+    "soil_type": "sandy loam",
+    "water_need_mm": 230,
+    "estimated_input_cost_inr": 52000,
+    "guidance": "Avoid waterlogging and confirm seed treatment guidance locally.",
+    "source_name": "SasyaAI synthetic scenario using ICAR/OGD crop taxonomy",
+    "source_url": "https://www.data.gov.in/catalog/field-crop-varieties-released-central-release",
+    "source_updated_at": "2014-02-13",
+    "review_status": "synthetic_reference",
+    "tags": [
+      "groundnut",
+      "Tamil Nadu",
+      "planning",
+      "synthetic-evaluation"
+    ]
+  },
+  {
+    "title": "Banana planning reference for Tamil Nadu",
+    "crop": "banana",
+    "region": "Tamil Nadu",
+    "soil_type": "deep loam",
+    "water_need_mm": 900,
+    "estimated_input_cost_inr": 150000,
+    "guidance": "Require assured irrigation, drainage, and a verified market plan.",
+    "source_name": "SasyaAI synthetic scenario using ICAR/OGD crop taxonomy",
+    "source_url": "https://www.data.gov.in/catalog/field-crop-varieties-released-central-release",
+    "source_updated_at": "2014-02-13",
+    "review_status": "synthetic_reference",
+    "tags": [
+      "banana",
+      "Tamil Nadu",
+      "planning",
+      "synthetic-evaluation"
+    ]
+  },
+  {
+    "title": "Paddy planning reference for Andhra Pradesh",
+    "crop": "paddy",
+    "region": "Andhra Pradesh",
+    "soil_type": "clay loam",
+    "water_need_mm": 320,
+    "estimated_input_cost_inr": 70000,
+    "guidance": "Confirm irrigation reliability and use locally recommended establishment methods.",
+    "source_name": "SasyaAI synthetic scenario using ICAR/OGD crop taxonomy",
+    "source_url": "https://www.data.gov.in/catalog/field-crop-varieties-released-central-release",
+    "source_updated_at": "2014-02-13",
+    "review_status": "synthetic_reference",
+    "tags": [
+      "paddy",
+      "Andhra Pradesh",
+      "planning",
+      "synthetic-evaluation"
+    ]
+  },
+  {
+    "title": "Groundnut planning reference for Andhra Pradesh",
+    "crop": "groundnut",
+    "region": "Andhra Pradesh",
+    "soil_type": "sandy loam",
+    "water_need_mm": 230,
+    "estimated_input_cost_inr": 52000,
+    "guidance": "Avoid waterlogging and confirm seed treatment guidance locally.",
+    "source_name": "SasyaAI synthetic scenario using ICAR/OGD crop taxonomy",
+    "source_url": "https://www.data.gov.in/catalog/field-crop-varieties-released-central-release",
+    "source_updated_at": "2014-02-13",
+    "review_status": "synthetic_reference",
+    "tags": [
+      "groundnut",
+      "Andhra Pradesh",
+      "planning",
+      "synthetic-evaluation"
+    ]
+  },
+  {
+    "title": "Chilli planning reference for Andhra Pradesh",
+    "crop": "chilli",
+    "region": "Andhra Pradesh",
+    "soil_type": "well-drained loam",
+    "water_need_mm": 430,
+    "estimated_input_cost_inr": 90000,
+    "guidance": "Use nursery hygiene and frequent pest and disease scouting.",
+    "source_name": "SasyaAI synthetic scenario using ICAR/OGD crop taxonomy",
+    "source_url": "https://www.data.gov.in/catalog/field-crop-varieties-released-central-release",
+    "source_updated_at": "2014-02-13",
+    "review_status": "synthetic_reference",
+    "tags": [
+      "chilli",
+      "Andhra Pradesh",
+      "planning",
+      "synthetic-evaluation"
+    ]
+  },
+  {
+    "title": "Paddy planning reference for Odisha",
+    "crop": "paddy",
+    "region": "Odisha",
+    "soil_type": "clay loam",
+    "water_need_mm": 320,
+    "estimated_input_cost_inr": 70000,
+    "guidance": "Confirm irrigation reliability and use locally recommended establishment methods.",
+    "source_name": "SasyaAI synthetic scenario using ICAR/OGD crop taxonomy",
+    "source_url": "https://www.data.gov.in/catalog/field-crop-varieties-released-central-release",
+    "source_updated_at": "2014-02-13",
+    "review_status": "synthetic_reference",
+    "tags": [
+      "paddy",
+      "Odisha",
+      "planning",
+      "synthetic-evaluation"
+    ]
+  },
+  {
+    "title": "Pigeon Pea planning reference for Odisha",
+    "crop": "pigeon pea",
+    "region": "Odisha",
+    "soil_type": "well-drained loam",
+    "water_need_mm": 210,
+    "estimated_input_cost_inr": 42000,
+    "guidance": "Use timely sowing and monitor pod-stage pest pressure.",
+    "source_name": "SasyaAI synthetic scenario using ICAR/OGD crop taxonomy",
+    "source_url": "https://www.data.gov.in/catalog/field-crop-varieties-released-central-release",
+    "source_updated_at": "2014-02-13",
+    "review_status": "synthetic_reference",
+    "tags": [
+      "pigeon pea",
+      "Odisha",
+      "planning",
+      "synthetic-evaluation"
+    ]
+  },
+  {
+    "title": "Groundnut planning reference for Odisha",
+    "crop": "groundnut",
+    "region": "Odisha",
+    "soil_type": "sandy loam",
+    "water_need_mm": 230,
+    "estimated_input_cost_inr": 52000,
+    "guidance": "Avoid waterlogging and confirm seed treatment guidance locally.",
+    "source_name": "SasyaAI synthetic scenario using ICAR/OGD crop taxonomy",
+    "source_url": "https://www.data.gov.in/catalog/field-crop-varieties-released-central-release",
+    "source_updated_at": "2014-02-13",
+    "review_status": "synthetic_reference",
+    "tags": [
+      "groundnut",
+      "Odisha",
+      "planning",
+      "synthetic-evaluation"
+    ]
+  },
+  {
+    "title": "Maize planning reference for Bihar",
+    "crop": "maize",
+    "region": "Bihar",
+    "soil_type": "well-drained loam",
+    "water_need_mm": 260,
+    "estimated_input_cost_inr": 48000,
+    "guidance": "Plan timely sowing, drainage, and fall-armyworm scouting.",
+    "source_name": "SasyaAI synthetic scenario using ICAR/OGD crop taxonomy",
+    "source_url": "https://www.data.gov.in/catalog/field-crop-varieties-released-central-release",
+    "source_updated_at": "2014-02-13",
+    "review_status": "synthetic_reference",
+    "tags": [
+      "maize",
+      "Bihar",
+      "planning",
+      "synthetic-evaluation"
+    ]
+  },
+  {
+    "title": "Wheat planning reference for Bihar",
+    "crop": "wheat",
+    "region": "Bihar",
+    "soil_type": "loam",
+    "water_need_mm": 260,
+    "estimated_input_cost_inr": 56000,
+    "guidance": "Align sowing window and irrigation scheduling with local advisories.",
+    "source_name": "SasyaAI synthetic scenario using ICAR/OGD crop taxonomy",
+    "source_url": "https://www.data.gov.in/catalog/field-crop-varieties-released-central-release",
+    "source_updated_at": "2014-02-13",
+    "review_status": "synthetic_reference",
+    "tags": [
+      "wheat",
+      "Bihar",
+      "planning",
+      "synthetic-evaluation"
+    ]
+  },
+  {
+    "title": "Lentil planning reference for Bihar",
+    "crop": "lentil",
+    "region": "Bihar",
+    "soil_type": "loam",
+    "water_need_mm": 170,
+    "estimated_input_cost_inr": 34000,
+    "guidance": "Prefer well-drained fields and locally recommended seed.",
+    "source_name": "SasyaAI synthetic scenario using ICAR/OGD crop taxonomy",
+    "source_url": "https://www.data.gov.in/catalog/field-crop-varieties-released-central-release",
+    "source_updated_at": "2014-02-13",
+    "review_status": "synthetic_reference",
+    "tags": [
+      "lentil",
+      "Bihar",
+      "planning",
+      "synthetic-evaluation"
+    ]
+  },
+  {
+    "title": "Paddy planning reference for West Bengal",
+    "crop": "paddy",
+    "region": "West Bengal",
+    "soil_type": "clay loam",
+    "water_need_mm": 320,
+    "estimated_input_cost_inr": 70000,
+    "guidance": "Confirm irrigation reliability and use locally recommended establishment methods.",
+    "source_name": "SasyaAI synthetic scenario using ICAR/OGD crop taxonomy",
+    "source_url": "https://www.data.gov.in/catalog/field-crop-varieties-released-central-release",
+    "source_updated_at": "2014-02-13",
+    "review_status": "synthetic_reference",
+    "tags": [
+      "paddy",
+      "West Bengal",
+      "planning",
+      "synthetic-evaluation"
+    ]
+  },
+  {
+    "title": "Potato planning reference for West Bengal",
+    "crop": "potato",
+    "region": "West Bengal",
+    "soil_type": "friable loam",
+    "water_need_mm": 300,
+    "estimated_input_cost_inr": 85000,
+    "guidance": "Confirm seed-tuber health, storage access, and market timing.",
+    "source_name": "SasyaAI synthetic scenario using ICAR/OGD crop taxonomy",
+    "source_url": "https://www.data.gov.in/catalog/field-crop-varieties-released-central-release",
+    "source_updated_at": "2014-02-13",
+    "review_status": "synthetic_reference",
+    "tags": [
+      "potato",
+      "West Bengal",
+      "planning",
+      "synthetic-evaluation"
+    ]
+  },
+  {
+    "title": "Jute planning reference for West Bengal",
+    "crop": "jute",
+    "region": "West Bengal",
+    "soil_type": "alluvial soil",
+    "water_need_mm": 420,
+    "estimated_input_cost_inr": 62000,
+    "guidance": "Confirm retting-water access and local market arrangements.",
+    "source_name": "SasyaAI synthetic scenario using ICAR/OGD crop taxonomy",
+    "source_url": "https://www.data.gov.in/catalog/field-crop-varieties-released-central-release",
+    "source_updated_at": "2014-02-13",
+    "review_status": "synthetic_reference",
+    "tags": [
+      "jute",
+      "West Bengal",
+      "planning",
+      "synthetic-evaluation"
+    ]
+  },
+  {
+    "title": "Paddy planning reference for Assam",
+    "crop": "paddy",
+    "region": "Assam",
+    "soil_type": "clay loam",
+    "water_need_mm": 320,
+    "estimated_input_cost_inr": 70000,
+    "guidance": "Confirm irrigation reliability and use locally recommended establishment methods.",
+    "source_name": "SasyaAI synthetic scenario using ICAR/OGD crop taxonomy",
+    "source_url": "https://www.data.gov.in/catalog/field-crop-varieties-released-central-release",
+    "source_updated_at": "2014-02-13",
+    "review_status": "synthetic_reference",
+    "tags": [
+      "paddy",
+      "Assam",
+      "planning",
+      "synthetic-evaluation"
+    ]
+  },
+  {
+    "title": "Mustard planning reference for Assam",
+    "crop": "mustard",
+    "region": "Assam",
+    "soil_type": "sandy loam",
+    "water_need_mm": 190,
+    "estimated_input_cost_inr": 39000,
+    "guidance": "Use a locally recommended variety and monitor flowering-stage stress.",
+    "source_name": "SasyaAI synthetic scenario using ICAR/OGD crop taxonomy",
+    "source_url": "https://www.data.gov.in/catalog/field-crop-varieties-released-central-release",
+    "source_updated_at": "2014-02-13",
+    "review_status": "synthetic_reference",
+    "tags": [
+      "mustard",
+      "Assam",
+      "planning",
+      "synthetic-evaluation"
+    ]
+  },
+  {
+    "title": "Jute planning reference for Assam",
+    "crop": "jute",
+    "region": "Assam",
+    "soil_type": "alluvial soil",
+    "water_need_mm": 420,
+    "estimated_input_cost_inr": 62000,
+    "guidance": "Confirm retting-water access and local market arrangements.",
+    "source_name": "SasyaAI synthetic scenario using ICAR/OGD crop taxonomy",
+    "source_url": "https://www.data.gov.in/catalog/field-crop-varieties-released-central-release",
+    "source_updated_at": "2014-02-13",
+    "review_status": "synthetic_reference",
+    "tags": [
+      "jute",
+      "Assam",
+      "planning",
+      "synthetic-evaluation"
+    ]
+  },
+  {
+    "title": "Paddy planning reference for Chhattisgarh",
+    "crop": "paddy",
+    "region": "Chhattisgarh",
+    "soil_type": "clay loam",
+    "water_need_mm": 320,
+    "estimated_input_cost_inr": 70000,
+    "guidance": "Confirm irrigation reliability and use locally recommended establishment methods.",
+    "source_name": "SasyaAI synthetic scenario using ICAR/OGD crop taxonomy",
+    "source_url": "https://www.data.gov.in/catalog/field-crop-varieties-released-central-release",
+    "source_updated_at": "2014-02-13",
+    "review_status": "synthetic_reference",
+    "tags": [
+      "paddy",
+      "Chhattisgarh",
+      "planning",
+      "synthetic-evaluation"
+    ]
+  },
+  {
+    "title": "Chickpea planning reference for Chhattisgarh",
+    "crop": "chickpea",
+    "region": "Chhattisgarh",
+    "soil_type": "well-drained loam",
+    "water_need_mm": 180,
+    "estimated_input_cost_inr": 38000,
+    "guidance": "Avoid waterlogging and confirm wilt-resistant local varieties.",
+    "source_name": "SasyaAI synthetic scenario using ICAR/OGD crop taxonomy",
+    "source_url": "https://www.data.gov.in/catalog/field-crop-varieties-released-central-release",
+    "source_updated_at": "2014-02-13",
+    "review_status": "synthetic_reference",
+    "tags": [
+      "chickpea",
+      "Chhattisgarh",
+      "planning",
+      "synthetic-evaluation"
+    ]
+  },
+  {
+    "title": "Maize planning reference for Chhattisgarh",
+    "crop": "maize",
+    "region": "Chhattisgarh",
+    "soil_type": "well-drained loam",
+    "water_need_mm": 260,
+    "estimated_input_cost_inr": 48000,
+    "guidance": "Plan timely sowing, drainage, and fall-armyworm scouting.",
+    "source_name": "SasyaAI synthetic scenario using ICAR/OGD crop taxonomy",
+    "source_url": "https://www.data.gov.in/catalog/field-crop-varieties-released-central-release",
+    "source_updated_at": "2014-02-13",
+    "review_status": "synthetic_reference",
+    "tags": [
+      "maize",
+      "Chhattisgarh",
+      "planning",
+      "synthetic-evaluation"
+    ]
+  },
+  {
+    "title": "Paddy planning reference for Jharkhand",
+    "crop": "paddy",
+    "region": "Jharkhand",
+    "soil_type": "clay loam",
+    "water_need_mm": 320,
+    "estimated_input_cost_inr": 70000,
+    "guidance": "Confirm irrigation reliability and use locally recommended establishment methods.",
+    "source_name": "SasyaAI synthetic scenario using ICAR/OGD crop taxonomy",
+    "source_url": "https://www.data.gov.in/catalog/field-crop-varieties-released-central-release",
+    "source_updated_at": "2014-02-13",
+    "review_status": "synthetic_reference",
+    "tags": [
+      "paddy",
+      "Jharkhand",
+      "planning",
+      "synthetic-evaluation"
+    ]
+  },
+  {
+    "title": "Maize planning reference for Jharkhand",
+    "crop": "maize",
+    "region": "Jharkhand",
+    "soil_type": "well-drained loam",
+    "water_need_mm": 260,
+    "estimated_input_cost_inr": 48000,
+    "guidance": "Plan timely sowing, drainage, and fall-armyworm scouting.",
+    "source_name": "SasyaAI synthetic scenario using ICAR/OGD crop taxonomy",
+    "source_url": "https://www.data.gov.in/catalog/field-crop-varieties-released-central-release",
+    "source_updated_at": "2014-02-13",
+    "review_status": "synthetic_reference",
+    "tags": [
+      "maize",
+      "Jharkhand",
+      "planning",
+      "synthetic-evaluation"
+    ]
+  },
+  {
+    "title": "Pigeon Pea planning reference for Jharkhand",
+    "crop": "pigeon pea",
+    "region": "Jharkhand",
+    "soil_type": "well-drained loam",
+    "water_need_mm": 210,
+    "estimated_input_cost_inr": 42000,
+    "guidance": "Use timely sowing and monitor pod-stage pest pressure.",
+    "source_name": "SasyaAI synthetic scenario using ICAR/OGD crop taxonomy",
+    "source_url": "https://www.data.gov.in/catalog/field-crop-varieties-released-central-release",
+    "source_updated_at": "2014-02-13",
+    "review_status": "synthetic_reference",
+    "tags": [
+      "pigeon pea",
+      "Jharkhand",
+      "planning",
+      "synthetic-evaluation"
+    ]
+  },
+  {
+    "title": "Banana planning reference for Kerala",
+    "crop": "banana",
+    "region": "Kerala",
+    "soil_type": "deep loam",
+    "water_need_mm": 900,
+    "estimated_input_cost_inr": 150000,
+    "guidance": "Require assured irrigation, drainage, and a verified market plan.",
+    "source_name": "SasyaAI synthetic scenario using ICAR/OGD crop taxonomy",
+    "source_url": "https://www.data.gov.in/catalog/field-crop-varieties-released-central-release",
+    "source_updated_at": "2014-02-13",
+    "review_status": "synthetic_reference",
+    "tags": [
+      "banana",
+      "Kerala",
+      "planning",
+      "synthetic-evaluation"
+    ]
+  },
+  {
+    "title": "Tapioca planning reference for Kerala",
+    "crop": "tapioca",
+    "region": "Kerala",
+    "soil_type": "lateritic loam",
+    "water_need_mm": 360,
+    "estimated_input_cost_inr": 68000,
+    "guidance": "Use healthy planting material and erosion-aware field layout.",
+    "source_name": "SasyaAI synthetic scenario using ICAR/OGD crop taxonomy",
+    "source_url": "https://www.data.gov.in/catalog/field-crop-varieties-released-central-release",
+    "source_updated_at": "2014-02-13",
+    "review_status": "synthetic_reference",
+    "tags": [
+      "tapioca",
+      "Kerala",
+      "planning",
+      "synthetic-evaluation"
+    ]
+  },
+  {
+    "title": "Cowpea planning reference for Kerala",
+    "crop": "cowpea",
+    "region": "Kerala",
+    "soil_type": "well-drained loam",
+    "water_need_mm": 170,
+    "estimated_input_cost_inr": 33000,
+    "guidance": "Use a locally suitable variety and monitor pod borers.",
+    "source_name": "SasyaAI synthetic scenario using ICAR/OGD crop taxonomy",
+    "source_url": "https://www.data.gov.in/catalog/field-crop-varieties-released-central-release",
+    "source_updated_at": "2014-02-13",
+    "review_status": "synthetic_reference",
+    "tags": [
+      "cowpea",
+      "Kerala",
+      "planning",
+      "synthetic-evaluation"
+    ]
   }
 ]

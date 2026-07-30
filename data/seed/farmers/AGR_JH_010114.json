@@ -1,0 +1,43 @@
+{
+  "farmer_id": "AGR_JH_010114",
+  "name": "Suman Munda",
+  "state": "Jharkhand",
+  "district": "Ranchi",
+  "preferred_language": "hi",
+  "synthetic_data": true,
+  "consent": {
+    "advisory": true,
+    "consent_id": "SYN_CONSENT_JH_010114",
+    "status": "granted",
+    "purpose": "agricultural_advisory",
+    "scopes": [
+      "farmer_profile",
+      "advisory",
+      "advisory_memory"
+    ],
+    "granted_at": "2026-07-01T09:00:00Z",
+    "expires_at": "2030-12-31T23:59:59Z",
+    "revoked_at": null
+  },
+  "digital_twin": {
+    "season": "Kharif",
+    "current_crop": "pigeon pea",
+    "soil_fertility": "moderate",
+    "water_budget_mm": 230,
+    "budget_inr": 57000,
+    "eligible_schemes": [
+      "PM-KISAN",
+      "PMFBY",
+      "Soil Health Card"
+    ],
+    "weather_alert": false,
+    "farm_size_hectares": 3.3,
+    "soil_type": "well-drained loam",
+    "irrigation_type": "rainfed",
+    "risk_flags": []
+  },
+  "location": {
+    "latitude": 23.34,
+    "longitude": 85.31
+  }
+}

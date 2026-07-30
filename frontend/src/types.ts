@@ -29,6 +29,57 @@ export interface TraceEvent {
   detail: string;
 }
 
+export interface AgentRun {
+  agent_id: string;
+  name: string;
+  role: string;
+  status: "completed" | "failed" | "skipped";
+  execution_mode: "llm" | "deterministic" | "tool";
+  duration_ms: number;
+  summary: string;
+  model?: string | null;
+  input_sources: string[];
+  output_confidence?: number | null;
+}
+
+export interface AgentDescriptor {
+  agent_id: string;
+  name: string;
+  role: string;
+  responsibilities: string[];
+  kind: "manager" | "reasoning" | "tool" | "safety";
+  production_model?: string | null;
+  can_write_memory: boolean;
+}
+
+export interface KnowledgeStats {
+  runtime_mode: "demo" | "production";
+  collections: Record<string, number>;
+  total_documents: number;
+  regions: number;
+  crops: number;
+}
+
+export interface RuntimeHealth {
+  status: string;
+  service: string;
+  environment: string;
+  runtime_mode: "demo" | "production";
+  agent_execution: string;
+}
+
+export interface DemoFarmerSummary {
+  farmer_id: string;
+  name: string;
+  state: string;
+  district: string;
+  preferred_language: string;
+  current_crop: string;
+  season: string;
+  water_budget_mm: number;
+  farm_size_hectares: number;
+}
+
 export interface AdvisoryResponse {
   request_id: string;
   farmer_id: string;
@@ -45,6 +96,7 @@ export interface AdvisoryResponse {
   };
   verification: VerificationCheck[];
   trace: TraceEvent[];
+  agent_runs: AgentRun[];
   hitl_case_id: string | null;
 }
 
@@ -73,6 +125,7 @@ export interface HitlCase {
   evidence?: Evidence[];
   verification?: VerificationCheck[];
   trace?: TraceEvent[];
+  agent_runs?: AgentRun[];
   created_at?: string;
   reviewer_note?: string | null;
   edited_recommendation?: string | null;

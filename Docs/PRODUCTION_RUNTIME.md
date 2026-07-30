@@ -8,10 +8,11 @@ dependency returns a controlled `503` without delivering an advisory.
 
 ```text
 Live AgriStack consent preflight
-  -> PostgreSQL farmer twin
-  -> AgriStack + Open-Meteo + market tool reads
-  -> filtered Qdrant retrieval
-  -> Gemini JSON plan and farmer-facing draft
+  -> authorised AgriStack profile refresh + PostgreSQL twin
+  -> Gemini Intent Router -> typed TaskGraph
+  -> required Open-Meteo / market reads + filtered Qdrant retrieval
+  -> one Gemini domain specialist -> typed draft
+  -> Gemini Reflection Agent -> pass or one bounded revision
   -> deterministic grounding / weather / dose verifier
   -> deliver, or queue durable HITL case
   -> PostgreSQL episode + farmer-scoped Qdrant memory
@@ -32,6 +33,10 @@ for experimentation. Free quota is not a production capacity plan: establish a
 budget, quota alerts, and a paid account before onboarding farmers. The
 provider interface in `backend/app/services/llm.py` makes a Vertex, OpenAI, or
 self-hosted replacement a contained change.
+
+Production makes separate schema-constrained calls for routing, specialist
+drafting, and reflection. Demo mode labels its deterministic implementation as
+a fallback and never claims an LLM ran. See [Agent Operations](AGENT_OPERATIONS.md).
 
 ## Required configuration
 
@@ -103,9 +108,24 @@ production retriever uses the state filter rather than cross-region fallback.
 
 Use `POST /api/v1/knowledge/documents` with a system-admin identity to ingest a
 reviewed document. The API requires its source URL, source-updated timestamp,
-state, and reviewer identity and is disabled in demo mode. It is an ingestion
+state, and reviewer identity and is disabled in demo mode. All-India scheme
+documents use `state=all`; the retriever matches both the farmer state and that
+global scope. It is an ingestion
 boundary, not a web-scraper: only content that has passed agronomy and source
 governance review belongs in Qdrant.
+
+For larger reviewed corpora, validate a UTF-8 JSONL file before any write:
+
+```powershell
+python scripts/ingest_reviewed_corpus.py .\reviewed-corpus.jsonl --dry-run
+$env:SASYAAI_ADMIN_API_KEY = "<secret-manager value>"
+python scripts/ingest_reviewed_corpus.py .\reviewed-corpus.jsonl
+```
+
+The streaming importer uses stable SHA-256 document identifiers, so a reviewed
+source can be re-ingested idempotently instead of creating duplicates. Every
+line follows the `KnowledgeIngestRequest` contract. Do not place production
+corpora or credentials in this repository.
 
 Farmer profile ingestion must happen behind an authenticated service boundary.
 The production profile needs at least `farmer_id`, `state`, `district`,
@@ -119,7 +139,8 @@ Copy-Item .env.example .env
 docker compose up --build
 ```
 
-This starts PostgreSQL and Qdrant, but remains in demo mode by default. For a
+This starts the Nginx-served operations UI, API, PostgreSQL, and Qdrant, but
+remains in demo mode by default. For a
 staging environment, supply secrets outside the repository, set
 `RUNTIME_MODE=production`, and populate all required provider values. Do not
 switch that flag until the provider contracts, source validation, and security

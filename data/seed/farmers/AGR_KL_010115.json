@@ -1,0 +1,43 @@
+{
+  "farmer_id": "AGR_KL_010115",
+  "name": "Anitha Nair",
+  "state": "Kerala",
+  "district": "Palakkad",
+  "preferred_language": "ml",
+  "synthetic_data": true,
+  "consent": {
+    "advisory": true,
+    "consent_id": "SYN_CONSENT_KL_010115",
+    "status": "granted",
+    "purpose": "agricultural_advisory",
+    "scopes": [
+      "farmer_profile",
+      "advisory",
+      "advisory_memory"
+    ],
+    "granted_at": "2026-07-01T09:00:00Z",
+    "expires_at": "2030-12-31T23:59:59Z",
+    "revoked_at": null
+  },
+  "digital_twin": {
+    "season": "Kharif",
+    "current_crop": "banana",
+    "soil_fertility": "moderate",
+    "water_budget_mm": 420,
+    "budget_inr": 100000,
+    "eligible_schemes": [
+      "PM-KISAN",
+      "PMFBY",
+      "Soil Health Card"
+    ],
+    "weather_alert": false,
+    "farm_size_hectares": 1.2,
+    "soil_type": "deep loam",
+    "irrigation_type": "mixed",
+    "risk_flags": []
+  },
+  "location": {
+    "latitude": 10.79,
+    "longitude": 76.65
+  }
+}

@@ -12,11 +12,13 @@ from pydantic import ValidationError
 from app.core.config import Settings
 from app.models.advisory import (
     AdvisoryResponse,
+    AgentRun,
     HITLCase,
     HITLDecisionRequest,
     Intent,
     KnowledgeHit,
     KnowledgeIngestRequest,
+    KnowledgeStats,
     MemorySearchRequest,
     ReflectionResult,
     TraceEvent,
@@ -35,8 +37,9 @@ from app.services.advisory import (
     HITLCaseNotPendingError,
     HITLCaseSafetyBlockedError,
 )
+from app.services.agents import AgentTimer
 from app.services.connectors import LiveDataGateway, ToolDataUnavailableError
-from app.services.llm import AgentPlan, LLMRequest, build_llm_provider
+from app.services.llm import AgentPlan, LLMRequest, TaskGraph, build_llm_provider
 from app.services.persistence import PostgresMemoryStore
 from app.services.retrieval import QdrantKnowledgeStore
 
@@ -169,12 +172,47 @@ class ProductionAdvisoryService:
             for hit in hits
         ]
 
-    def _retrieve(self, farmer: dict[str, Any], query: str) -> list[KnowledgeHit]:
+    def _retrieve(
+        self,
+        farmer: dict[str, Any],
+        query: str,
+        collections: list[str],
+    ) -> list[KnowledgeHit]:
         filters = {"state": str(farmer["state"])}
         hits: list[KnowledgeHit] = []
-        for collection in ("crop_kb", "pest_kb", "scheme_kb"):
-            hits.extend(self.retrieval.search(collection, query, filters=filters, limit=3))
+        for collection in collections:
+            collection_filters: dict[str, str | list[str]] = filters
+            if collection == "scheme_kb":
+                collection_filters = {"state": [str(farmer["state"]), "all"]}
+            hits.extend(
+                self.retrieval.search(
+                    collection,
+                    query,
+                    filters=collection_filters,
+                    limit=3,
+                )
+            )
         return hits
+
+    @staticmethod
+    def _enforce_requested_intent(graph: TaskGraph, requested_intent: Intent | None) -> TaskGraph:
+        """Treat an explicit API intent as a routing contract, not an LLM suggestion."""
+
+        if requested_intent is None or graph.intent is requested_intent:
+            return graph
+        specialist, collection, needs_market = {
+            Intent.CROP_PLAN: ("crop_planning_agent", "crop_kb", True),
+            Intent.DIAGNOSE: ("pest_diagnosis_agent", "pest_kb", False),
+            Intent.SCHEME: ("scheme_navigation_agent", "scheme_kb", False),
+        }[requested_intent]
+        return TaskGraph(
+            intent=requested_intent,
+            specialist_agent=specialist,
+            retrieval_collections=[collection],
+            needs_weather=requested_intent is not Intent.SCHEME,
+            needs_market=needs_market,
+            route_summary="Applied the caller's explicit typed intent.",
+        )
 
     @staticmethod
     def _weather_is_unsafe(weather: dict[str, Any]) -> bool:
@@ -185,16 +223,58 @@ class ProductionAdvisoryService:
             isinstance(rain_probability, (int, float)) and rain_probability >= 85
         )
 
+    @staticmethod
+    def _weather_is_complete(weather: dict[str, Any]) -> bool:
+        data = weather.get("data", {})
+        return (
+            weather.get("freshness") == "live"
+            and isinstance(data, dict)
+            and isinstance(data.get("wind_speed_kmh"), (int, float))
+            and isinstance(data.get("max_precipitation_probability"), (int, float))
+        )
+
     def _verify(
         self,
         plan: AgentPlan,
         evidence: list[KnowledgeHit],
         weather: dict[str, Any],
+        market: dict[str, Any],
         intent: Intent,
+        *,
+        needs_weather: bool,
+        needs_market: bool,
     ) -> list[VerificationCheck]:
         evidence_ids = {str(hit.metadata.get("document_id", hit.title)) for hit in evidence}
         cited_ids = set(plan.evidence_ids)
         grounding_ok = bool(cited_ids) and cited_ids.issubset(evidence_ids)
+        if not needs_weather:
+            weather_check = VerificationCheck(
+                name="weather_safety",
+                status="not_applicable",
+                message="The typed task graph did not require a weather-dependent action.",
+            )
+        elif not self._weather_is_complete(weather):
+            weather_check = VerificationCheck(
+                name="weather_safety",
+                status="fail",
+                message="The required live weather snapshot is incomplete and delivery is blocked.",
+            )
+        else:
+            weather_check = VerificationCheck(
+                name="weather_safety",
+                status="fail" if self._weather_is_unsafe(weather) else "pass",
+                message=(
+                    "Live weather exceeds the configured wind/rain safety threshold."
+                    if self._weather_is_unsafe(weather)
+                    else "Live weather is below the configured wind/rain safety threshold."
+                ),
+            )
+        required_snapshots = [weather] if needs_weather else []
+        if needs_market:
+            required_snapshots.append(market)
+        freshness_ok = all(
+            snapshot.get("freshness") == "live" for snapshot in required_snapshots
+        )
         checks = [
             VerificationCheck(
                 name="evidence_grounding",
@@ -205,19 +285,15 @@ class ProductionAdvisoryService:
                     else "The LLM draft has missing or unverified evidence citations and is blocked."
                 ),
             ),
-            VerificationCheck(
-                name="weather_safety",
-                status="fail" if self._weather_is_unsafe(weather) else "pass",
-                message=(
-                    "Live weather exceeds the configured wind/rain safety threshold."
-                    if self._weather_is_unsafe(weather)
-                    else "Live weather is below the configured wind/rain safety threshold."
-                ),
-            ),
+            weather_check,
             VerificationCheck(
                 name="source_freshness",
-                status="pass",
-                message="Consent, weather, market, and retrieval sources were read during this request.",
+                status="pass" if freshness_ok else "fail",
+                message=(
+                    "Every live connector required by the typed task graph returned a current snapshot."
+                    if freshness_ok
+                    else "A required live connector did not return a current snapshot."
+                ),
             ),
         ]
         has_dose = bool(_DOSE_PATTERN.search(f"{plan.recommendation}\n{plan.explanation}"))
@@ -253,6 +329,7 @@ class ProductionAdvisoryService:
         verification: list[VerificationCheck],
         evidence: list[KnowledgeHit],
         trace: list[TraceEvent],
+        agent_runs: list[AgentRun],
         reason: str,
         safety_rule_set_version: str,
     ) -> dict[str, Any]:
@@ -270,11 +347,16 @@ class ProductionAdvisoryService:
             "evidence": [hit.model_dump(mode="json") for hit in evidence],
             "verification": [check.model_dump(mode="json") for check in verification],
             "trace": [event.model_dump(mode="json") for event in trace],
+            "agent_runs": [run.model_dump(mode="json") for run in agent_runs],
             "created_at": datetime.now(timezone.utc).isoformat(),
             "decision_history": [],
         }
 
     def query(self, request) -> AdvisoryResponse:
+        root_timer = AgentTimer(
+            "root_manager", execution_mode="deterministic"
+        )
+        agent_runs: list[AgentRun] = []
         request_id = str(uuid4())
         consent = self._live_consent(
             request.farmer_id,
@@ -282,27 +364,147 @@ class ProductionAdvisoryService:
             request_id=request_id,
         )
         farmer, agristack = self._refresh_farmer_context(request.farmer_id, consent)
-        weather = self.tools.weather(farmer)
-        market = self.tools.market(farmer, request.query)
-        evidence = self._retrieve(farmer, request.query)
-        plan = self.llm.plan_and_draft(
-            LLMRequest(
-                query=request.query,
-                language=request.language,
-                farmer_context=self._safe_farmer_context(farmer),
-                evidence=self._evidence_for_prompt(evidence),
-                tool_context={
-                    "weather": weather,
-                    "market": market,
-                    "agristack_context_provenance": {
-                        key: agristack[key]
-                        for key in ("provider", "source_record_id", "retrieved_at", "freshness")
-                    },
-                },
-                requested_intent=request.intent,
+        safe_farmer_context = self._safe_farmer_context(farmer)
+        source_provenance = {
+            key: agristack[key]
+            for key in ("provider", "source_record_id", "retrieved_at", "freshness")
+        }
+
+        router_timer = AgentTimer(
+            "intent_router", execution_mode="llm", model=self.settings.gemini_model
+        )
+        route_request = LLMRequest(
+            query=request.query,
+            language=request.language,
+            farmer_context=safe_farmer_context,
+            evidence=[],
+            tool_context={"agristack_context_provenance": source_provenance},
+            requested_intent=request.intent,
+        )
+        graph = self._enforce_requested_intent(self.llm.route(route_request), request.intent)
+        agent_runs.append(
+            router_timer.finish(
+                summary=graph.route_summary,
+                input_sources=["farmer_context", "query"],
             )
         )
-        verification = self._verify(plan, evidence, weather, plan.intent)
+
+        live_timer = AgentTimer("live_data_agent", execution_mode="tool")
+        weather = (
+            self.tools.weather(farmer)
+            if graph.needs_weather
+            else {"provider": "not_requested", "freshness": "not_applicable", "data": {}}
+        )
+        market = (
+            self.tools.market(farmer, request.query)
+            if graph.needs_market
+            else {"provider": "not_requested", "freshness": "not_applicable", "data": {}}
+        )
+        live_sources = ["agristack"]
+        if graph.needs_weather:
+            live_sources.append("open_meteo")
+        if graph.needs_market:
+            live_sources.append("market_provider")
+        agent_runs.append(
+            live_timer.finish(
+                summary="Fetched the live signals declared by the typed task graph.",
+                input_sources=live_sources,
+            )
+        )
+
+        memory_timer = AgentTimer("memory_agent", execution_mode="tool")
+        evidence = self._retrieve(
+            farmer,
+            request.query,
+            list(graph.retrieval_collections),
+        )
+        agent_runs.append(
+            memory_timer.finish(
+                summary=f"Retrieved {len(evidence)} state-filtered evidence records.",
+                input_sources=list(graph.retrieval_collections),
+            )
+        )
+
+        specialist_timer = AgentTimer(
+            graph.specialist_agent,
+            execution_mode="llm",
+            model=self.settings.gemini_model,
+        )
+        specialist_request = LLMRequest(
+            query=request.query,
+            language=request.language,
+            farmer_context=safe_farmer_context,
+            evidence=self._evidence_for_prompt(evidence),
+            tool_context={
+                "weather": weather,
+                "market": market,
+                "agristack_context_provenance": source_provenance,
+            },
+            requested_intent=graph.intent,
+        )
+        plan = self.llm.plan_and_draft(specialist_request)
+        if plan.intent is not graph.intent:
+            plan = plan.model_copy(update={"intent": graph.intent, "needs_human_review": True})
+        agent_runs.append(
+            specialist_timer.finish(
+                summary="Produced a typed farmer-facing draft grounded in retrieved evidence.",
+                input_sources=[*graph.retrieval_collections, *live_sources],
+                confidence=plan.confidence,
+            )
+        )
+
+        reflection_timer = AgentTimer(
+            "reflection_agent",
+            execution_mode="llm",
+            model=self.settings.gemini_model,
+        )
+        reflection = self.llm.reflect(specialist_request, plan)
+        if reflection.status == "revise":
+            plan = plan.model_copy(
+                update={
+                    "recommendation": (
+                        reflection.revised_recommendation or plan.recommendation
+                    ),
+                    "explanation": reflection.revised_explanation or plan.explanation,
+                    "confidence": max(
+                        0.0, min(1.0, plan.confidence + reflection.confidence_delta)
+                    ),
+                    "needs_human_review": (
+                        plan.needs_human_review or reflection.needs_human_review
+                    ),
+                }
+            )
+        elif reflection.needs_human_review:
+            plan = plan.model_copy(update={"needs_human_review": True})
+        agent_runs.append(
+            reflection_timer.finish(
+                summary=(
+                    "Revised the draft within the retrieved evidence boundary."
+                    if reflection.status == "revise"
+                    else "Draft passed the bounded grounding and clarity review."
+                ),
+                input_sources=["specialist_draft", "retrieved_evidence"],
+                confidence=plan.confidence,
+            )
+        )
+
+        verifier_timer = AgentTimer("safety_verifier", execution_mode="deterministic")
+        verification = self._verify(
+            plan,
+            evidence,
+            weather,
+            market,
+            plan.intent,
+            needs_weather=graph.needs_weather,
+            needs_market=graph.needs_market,
+        )
+        agent_runs.append(
+            verifier_timer.finish(
+                summary="Applied non-LLM grounding, live-weather, eligibility, and dose gates.",
+                input_sources=["agent_draft", "live_weather", "retrieved_evidence"],
+                confidence=plan.confidence,
+            )
+        )
         verification_failed = any(check.status == "fail" for check in verification)
         needs_hitl = (
             verification_failed
@@ -316,9 +518,9 @@ class ProductionAdvisoryService:
                 detail="Verified live AgriStack consent before data access.",
             ),
             TraceEvent(
-                stage="memory_agent",
+                stage="intent_router",
                 status="completed",
-                detail="Read the durable farmer twin and Qdrant evidence.",
+                detail=graph.route_summary,
             ),
             TraceEvent(
                 stage="live_tools",
@@ -326,14 +528,23 @@ class ProductionAdvisoryService:
                 detail="Read live AgriStack, weather, and market context.",
             ),
             TraceEvent(
-                stage="planner",
+                stage="memory_agent",
                 status="completed",
-                detail="Gemini produced a schema-validated grounded draft.",
+                detail="Read the durable farmer twin and Qdrant evidence.",
+            ),
+            TraceEvent(
+                stage=graph.specialist_agent,
+                status="completed",
+                detail="Gemini produced a specialist, schema-validated grounded draft.",
             ),
             TraceEvent(
                 stage="reflection",
                 status="completed",
-                detail="Applied the LLM evidence and safety self-check contract.",
+                detail=(
+                    "Applied one bounded revision."
+                    if reflection.status == "revise"
+                    else "Passed the bounded reflection contract."
+                ),
             ),
             TraceEvent(
                 stage="verifier",
@@ -341,6 +552,14 @@ class ProductionAdvisoryService:
                 detail="Applied deterministic grounding, weather, and dosage gates.",
             ),
         ]
+        agent_runs.insert(
+            0,
+            root_timer.finish(
+                summary=f"Completed the {graph.intent.value} agent graph.",
+                input_sources=["live_consent", "farmer_request"],
+                confidence=plan.confidence,
+            ),
+        )
         hitl_case_id = None
         if needs_hitl:
             hitl_case_id = str(uuid4())
@@ -356,6 +575,7 @@ class ProductionAdvisoryService:
                     verification=verification,
                     evidence=evidence,
                     trace=trace,
+                    agent_runs=agent_runs,
                     reason=reason,
                     safety_rule_set_version=self.settings.safety_rule_set_version,
                 )
@@ -370,9 +590,10 @@ class ProductionAdvisoryService:
             recommendation=plan.recommendation,
             explanation=plan.explanation,
             evidence=evidence,
-            reflection=ReflectionResult(status="pass", notes=plan.safety_notes or ["Grounded draft completed."]),
+            reflection=ReflectionResult(status=reflection.status, notes=reflection.notes),
             verification=verification,
             trace=trace,
+            agent_runs=agent_runs,
             hitl_case_id=hitl_case_id,
         )
         episode = {
@@ -429,6 +650,7 @@ class ProductionAdvisoryService:
 
         return self.retrieval.upsert_document(
             request.collection,
+            document_id=request.document_id,
             title=request.title,
             content=request.content,
             metadata={
@@ -440,6 +662,9 @@ class ProductionAdvisoryService:
                 **request.metadata,
             },
         )
+
+    def knowledge_stats(self) -> KnowledgeStats:
+        return KnowledgeStats(runtime_mode="production", **self.retrieval.stats())
 
     def decide_hitl(self, case_id: str, request: HITLDecisionRequest) -> HITLCase | None:
         outcome = self.memory.decide_hitl(

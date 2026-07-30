@@ -1,0 +1,43 @@
+{
+  "farmer_id": "AGR_GJ_010106",
+  "name": "Jignesh Patel",
+  "state": "Gujarat",
+  "district": "Rajkot",
+  "preferred_language": "gu",
+  "synthetic_data": true,
+  "consent": {
+    "advisory": true,
+    "consent_id": "SYN_CONSENT_GJ_010106",
+    "status": "granted",
+    "purpose": "agricultural_advisory",
+    "scopes": [
+      "farmer_profile",
+      "advisory",
+      "advisory_memory"
+    ],
+    "granted_at": "2026-07-01T09:00:00Z",
+    "expires_at": "2030-12-31T23:59:59Z",
+    "revoked_at": null
+  },
+  "digital_twin": {
+    "season": "Kharif",
+    "current_crop": "groundnut",
+    "soil_fertility": "moderate",
+    "water_budget_mm": 250,
+    "budget_inr": 67000,
+    "eligible_schemes": [
+      "PM-KISAN",
+      "PMFBY",
+      "Soil Health Card"
+    ],
+    "weather_alert": false,
+    "farm_size_hectares": 3.3,
+    "soil_type": "sandy loam",
+    "irrigation_type": "rainfed",
+    "risk_flags": []
+  },
+  "location": {
+    "latitude": 22.3,
+    "longitude": 70.8
+  }
+}

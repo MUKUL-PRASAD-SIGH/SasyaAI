@@ -45,6 +45,21 @@ class TraceEvent(BaseModel):
     detail: str
 
 
+class AgentRun(BaseModel):
+    """Safe execution telemetry; never contains hidden chain-of-thought."""
+
+    agent_id: str = Field(min_length=2, max_length=80)
+    name: str = Field(min_length=2, max_length=120)
+    role: str = Field(min_length=2, max_length=160)
+    status: Literal["completed", "failed", "skipped"]
+    execution_mode: Literal["llm", "deterministic", "tool"]
+    duration_ms: int = Field(ge=0, le=300_000)
+    summary: str = Field(min_length=2, max_length=500)
+    model: str | None = Field(default=None, max_length=120)
+    input_sources: list[str] = Field(default_factory=list, max_length=20)
+    output_confidence: float | None = Field(default=None, ge=0, le=1)
+
+
 class AdvisoryResponse(BaseModel):
     request_id: str
     farmer_id: str
@@ -58,6 +73,7 @@ class AdvisoryResponse(BaseModel):
     reflection: ReflectionResult
     verification: list[VerificationCheck]
     trace: list[TraceEvent]
+    agent_runs: list[AgentRun] = Field(default_factory=list)
     hitl_case_id: str | None = None
 
 
@@ -69,6 +85,7 @@ class MemorySearchRequest(BaseModel):
 class KnowledgeIngestRequest(BaseModel):
     """A reviewed source document eligible for governed Qdrant ingestion."""
 
+    document_id: str | None = Field(default=None, min_length=8, max_length=160)
     collection: Literal["crop_kb", "pest_kb", "scheme_kb"]
     title: str = Field(min_length=3, max_length=300)
     content: str = Field(min_length=20, max_length=20_000)
@@ -78,6 +95,36 @@ class KnowledgeIngestRequest(BaseModel):
     source_updated_at: datetime
     reviewed_by: str = Field(min_length=2, max_length=160)
     metadata: dict[str, str | int | float | bool | list[str]] = Field(default_factory=dict)
+
+
+class AgentDescriptor(BaseModel):
+    agent_id: str
+    name: str
+    role: str
+    kind: Literal["manager", "reasoning", "tool", "safety"]
+    production_model: str | None = None
+    responsibilities: list[str]
+    can_write_memory: bool = False
+
+
+class KnowledgeStats(BaseModel):
+    runtime_mode: Literal["demo", "production"]
+    collections: dict[str, int]
+    total_documents: int = Field(ge=0)
+    regions: int = Field(ge=0)
+    crops: int = Field(ge=0)
+
+
+class DemoFarmerSummary(BaseModel):
+    farmer_id: str
+    name: str
+    state: str
+    district: str
+    preferred_language: str
+    current_crop: str
+    season: str
+    water_budget_mm: int
+    farm_size_hectares: float
 
 
 class MemoryEpisode(BaseModel):
@@ -128,6 +175,7 @@ class HITLCase(BaseModel):
     evidence: list[KnowledgeHit] = Field(default_factory=list)
     verification: list[VerificationCheck] = Field(default_factory=list)
     trace: list[TraceEvent] = Field(default_factory=list)
+    agent_runs: list[AgentRun] = Field(default_factory=list)
     created_at: str | None = None
     reviewer_note: str | None = None
     edited_recommendation: str | None = None

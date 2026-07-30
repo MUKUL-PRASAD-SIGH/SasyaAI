@@ -1,13 +1,22 @@
 import type {
   AdvisoryResponse,
+  AgentDescriptor,
+  DemoFarmerSummary,
   DecisionRequest,
   HitlCase,
+  KnowledgeStats,
   QueryRequest,
+  RuntimeHealth,
 } from "./types";
 
-const rawBaseUrl = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000";
+const rawBaseUrl = import.meta.env.VITE_API_BASE_URL || window.location.origin;
 
 export const apiBaseUrl = rawBaseUrl.replace(/\/+$/, "");
+let inMemoryApiKey = "";
+
+export function configureApiKey(apiKey: string): void {
+  inMemoryApiKey = apiKey.trim();
+}
 
 export class ApiError extends Error {
   status?: number;
@@ -61,6 +70,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
       headers: {
         Accept: "application/json",
         ...(init?.body ? { "Content-Type": "application/json" } : {}),
+        ...(inMemoryApiKey ? { "X-API-Key": inMemoryApiKey } : {}),
         ...init?.headers,
       },
     });
@@ -86,6 +96,22 @@ export function submitQuery(payload: QueryRequest): Promise<AdvisoryResponse> {
     method: "POST",
     body: JSON.stringify(payload),
   });
+}
+
+export function getRuntimeHealth(): Promise<RuntimeHealth> {
+  return request<RuntimeHealth>("/health");
+}
+
+export function listAgents(): Promise<AgentDescriptor[]> {
+  return request<AgentDescriptor[]>("/api/v1/agents");
+}
+
+export function getKnowledgeStats(): Promise<KnowledgeStats> {
+  return request<KnowledgeStats>("/api/v1/knowledge/stats");
+}
+
+export function listDemoFarmers(): Promise<DemoFarmerSummary[]> {
+  return request<DemoFarmerSummary[]>("/api/v1/demo/farmers");
 }
 
 export async function listHitlCases(): Promise<HitlCase[]> {

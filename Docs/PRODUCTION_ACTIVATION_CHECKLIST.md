@@ -14,6 +14,9 @@ is evidenced and signed off.
   receipts that mark external cleanup as pending.
 - Version-labelled deterministic safety path, non-overridable failed checks,
   backend/component/browser regression tests, and CI browser-test coverage.
+- Typed production Gemini router/specialist/reflection calls, PostgreSQL and
+  Qdrant adapters, FastEmbed ONNX retrieval, live connector boundaries, and
+  OpenTelemetry/Prometheus configuration.
 
 These are foundations only. Local API keys, local JSON logs, and in-process
 rate limits are not sufficient production controls.
@@ -30,7 +33,7 @@ rate limits are not sufficient production controls.
 | Evaluation | ML/domain lead | Assemble consented evaluation data, define target metrics and error budgets, and run regional/language validation | Dataset governance record, model/rule evaluation report, acceptance decision |
 | Durable data and backup | Data platform owner | Replace local JSON state with encrypted, access-controlled stores; define backup retention, restore testing, DSAR propagation, and data residency | Schema/migration review, backup-restore drill, retention policy |
 | Observability and incidents | SRE + security lead | Add production metrics, central audit export, SIEM integration, alerts, on-call ownership, and incident response exercises | Dashboard links, alert tests, incident tabletop record |
-| Security assurance | Security lead | Triage the current npm advisories, then run dependency/container scanning, SAST, DAST, penetration testing, and remediation tracking | Scan reports, pen-test closure, risk acceptance where needed |
+| Security assurance | Security lead | Keep dependency audits at zero, then run container scanning, SAST, DAST, penetration testing, and remediation tracking | Scan reports, pen-test closure, risk acceptance where needed |
 | Frontend and release | Frontend lead + QA | Connect the dashboard to approved browser authentication, run cross-browser/accessibility checks, and protect release environments | E2E results, accessibility report, release checklist |
 
 ## Configuration rules
@@ -50,8 +53,9 @@ rate limits are not sufficient production controls.
 ## Explicit non-goals of the local demonstrator
 
 - It does not authenticate real users or issue JWTs.
-- It does not make live provider calls or verify a real consent receipt.
-- It does not contain real farmer data, production secrets, authoritative
-  agronomy evidence, or a durable production datastore.
+- Demo mode does not make live provider calls or verify a real consent receipt.
+- The repository does not contain real farmer data, production secrets, or
+  authoritative agronomy evidence. Production stores require deployment-owned
+  infrastructure and governed data.
 - It does not replace legal, privacy, security, agricultural-domain, or
   operational sign-off.

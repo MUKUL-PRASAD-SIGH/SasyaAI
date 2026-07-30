@@ -47,6 +47,7 @@ class Settings(BaseSettings):
     qdrant_url: str = "http://localhost:6333"
     qdrant_api_key: str = ""
     embedding_model: str = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+    embedding_cache_dir: str = ""
 
     # Live-tool configuration. Open-Meteo is keyless and used only as a live
     # weather signal; market and AgriStack are enabled only after the startup

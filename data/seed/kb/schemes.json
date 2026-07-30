@@ -1,16 +1,242 @@
 [
   {
-    "title": "PM-KISAN demo eligibility record",
+    "title": "PM-KISAN official-verification reference",
     "name": "PM-KISAN",
     "state": "all",
-    "deadline": "Confirm against the official portal",
-    "guidance": "Use the authorised government portal to verify current eligibility and payment status."
+    "deadline": "Confirm the current deadline on the official portal",
+    "guidance": "Verify registration and payment status on the official portal.",
+    "source_name": "PM-KISAN official portal",
+    "source_url": "https://pmkisan.gov.in/",
+    "source_updated_at": "2026-07-31",
+    "review_status": "synthetic_reference",
+    "tags": [
+      "scheme",
+      "official-verification",
+      "all-india"
+    ]
   },
   {
-    "title": "PMFBY demo eligibility record",
+    "title": "PMFBY official-verification reference",
     "name": "PMFBY",
-    "state": "Maharashtra",
-    "deadline": "Confirm seasonal deadline",
-    "guidance": "Confirm notified crop, season, insurer, and application deadline before enrolment."
+    "state": "all",
+    "deadline": "Confirm the current deadline on the official portal",
+    "guidance": "Confirm notified crop, season, insurer, and enrolment deadline.",
+    "source_name": "PMFBY official portal",
+    "source_url": "https://pmfby.gov.in/",
+    "source_updated_at": "2026-07-31",
+    "review_status": "synthetic_reference",
+    "tags": [
+      "scheme",
+      "official-verification",
+      "all-india"
+    ]
+  },
+  {
+    "title": "Kisan Credit Card official-verification reference",
+    "name": "Kisan Credit Card",
+    "state": "all",
+    "deadline": "Confirm the current deadline on the official portal",
+    "guidance": "Confirm lender requirements and current eligibility.",
+    "source_name": "Kisan Credit Card official portal",
+    "source_url": "https://www.myscheme.gov.in/schemes/kcc",
+    "source_updated_at": "2026-07-31",
+    "review_status": "synthetic_reference",
+    "tags": [
+      "scheme",
+      "official-verification",
+      "all-india"
+    ]
+  },
+  {
+    "title": "Soil Health Card official-verification reference",
+    "name": "Soil Health Card",
+    "state": "all",
+    "deadline": "Confirm the current deadline on the official portal",
+    "guidance": "Use the official portal or local department for current soil-testing access.",
+    "source_name": "Soil Health Card official portal",
+    "source_url": "https://soilhealth.dac.gov.in/",
+    "source_updated_at": "2026-07-31",
+    "review_status": "synthetic_reference",
+    "tags": [
+      "scheme",
+      "official-verification",
+      "all-india"
+    ]
+  },
+  {
+    "title": "e-NAM official-verification reference",
+    "name": "e-NAM",
+    "state": "all",
+    "deadline": "Confirm the current deadline on the official portal",
+    "guidance": "Confirm mandi participation, assaying, and trader requirements.",
+    "source_name": "e-NAM official portal",
+    "source_url": "https://www.enam.gov.in/",
+    "source_updated_at": "2026-07-31",
+    "review_status": "synthetic_reference",
+    "tags": [
+      "scheme",
+      "official-verification",
+      "all-india"
+    ]
+  },
+  {
+    "title": "PM-KUSUM official-verification reference",
+    "name": "PM-KUSUM",
+    "state": "all",
+    "deadline": "Confirm the current deadline on the official portal",
+    "guidance": "Verify the active component and state implementation agency.",
+    "source_name": "PM-KUSUM official portal",
+    "source_url": "https://pmkusum.mnre.gov.in/",
+    "source_updated_at": "2026-07-31",
+    "review_status": "synthetic_reference",
+    "tags": [
+      "scheme",
+      "official-verification",
+      "all-india"
+    ]
+  },
+  {
+    "title": "Agriculture Infrastructure Fund official-verification reference",
+    "name": "Agriculture Infrastructure Fund",
+    "state": "all",
+    "deadline": "Confirm the current deadline on the official portal",
+    "guidance": "Confirm eligible activity, lender process, and current support terms.",
+    "source_name": "Agriculture Infrastructure Fund official portal",
+    "source_url": "https://agriinfra.dac.gov.in/",
+    "source_updated_at": "2026-07-31",
+    "review_status": "synthetic_reference",
+    "tags": [
+      "scheme",
+      "official-verification",
+      "all-india"
+    ]
+  },
+  {
+    "title": "National Mission on Edible Oils official-verification reference",
+    "name": "National Mission on Edible Oils",
+    "state": "all",
+    "deadline": "Confirm the current deadline on the official portal",
+    "guidance": "Check current state crop and programme coverage.",
+    "source_name": "National Mission on Edible Oils official portal",
+    "source_url": "https://nmeo.dac.gov.in/",
+    "source_updated_at": "2026-07-31",
+    "review_status": "synthetic_reference",
+    "tags": [
+      "scheme",
+      "official-verification",
+      "all-india"
+    ]
+  },
+  {
+    "title": "Mission for Integrated Development of Horticulture official-verification reference",
+    "name": "Mission for Integrated Development of Horticulture",
+    "state": "all",
+    "deadline": "Confirm the current deadline on the official portal",
+    "guidance": "Confirm current state action-plan coverage and application route.",
+    "source_name": "Mission for Integrated Development of Horticulture official portal",
+    "source_url": "https://midh.gov.in/",
+    "source_updated_at": "2026-07-31",
+    "review_status": "synthetic_reference",
+    "tags": [
+      "scheme",
+      "official-verification",
+      "all-india"
+    ]
+  },
+  {
+    "title": "National Mission for Sustainable Agriculture official-verification reference",
+    "name": "National Mission for Sustainable Agriculture",
+    "state": "all",
+    "deadline": "Confirm the current deadline on the official portal",
+    "guidance": "Check locally active components and implementing agency.",
+    "source_name": "National Mission for Sustainable Agriculture official portal",
+    "source_url": "https://nmsa.dac.gov.in/",
+    "source_updated_at": "2026-07-31",
+    "review_status": "synthetic_reference",
+    "tags": [
+      "scheme",
+      "official-verification",
+      "all-india"
+    ]
+  },
+  {
+    "title": "Rashtriya Krishi Vikas Yojana official-verification reference",
+    "name": "Rashtriya Krishi Vikas Yojana",
+    "state": "all",
+    "deadline": "Confirm the current deadline on the official portal",
+    "guidance": "Confirm the current state project and beneficiary channel.",
+    "source_name": "Rashtriya Krishi Vikas Yojana official portal",
+    "source_url": "https://rkvy.nic.in/",
+    "source_updated_at": "2026-07-31",
+    "review_status": "synthetic_reference",
+    "tags": [
+      "scheme",
+      "official-verification",
+      "all-india"
+    ]
+  },
+  {
+    "title": "Paramparagat Krishi Vikas Yojana official-verification reference",
+    "name": "Paramparagat Krishi Vikas Yojana",
+    "state": "all",
+    "deadline": "Confirm the current deadline on the official portal",
+    "guidance": "Verify cluster, certification, and local implementation details.",
+    "source_name": "Paramparagat Krishi Vikas Yojana official portal",
+    "source_url": "https://pgsindia-ncof.gov.in/",
+    "source_updated_at": "2026-07-31",
+    "review_status": "synthetic_reference",
+    "tags": [
+      "scheme",
+      "official-verification",
+      "all-india"
+    ]
+  },
+  {
+    "title": "Sub-Mission on Agricultural Mechanization official-verification reference",
+    "name": "Sub-Mission on Agricultural Mechanization",
+    "state": "all",
+    "deadline": "Confirm the current deadline on the official portal",
+    "guidance": "Check the state portal for current machinery support and empanelment.",
+    "source_name": "Sub-Mission on Agricultural Mechanization official portal",
+    "source_url": "https://agrimachinery.nic.in/",
+    "source_updated_at": "2026-07-31",
+    "review_status": "synthetic_reference",
+    "tags": [
+      "scheme",
+      "official-verification",
+      "all-india"
+    ]
+  },
+  {
+    "title": "National Food Security Mission official-verification reference",
+    "name": "National Food Security Mission",
+    "state": "all",
+    "deadline": "Confirm the current deadline on the official portal",
+    "guidance": "Verify covered crop, district, and current programme component.",
+    "source_name": "National Food Security Mission official portal",
+    "source_url": "https://nfsm.gov.in/",
+    "source_updated_at": "2026-07-31",
+    "review_status": "synthetic_reference",
+    "tags": [
+      "scheme",
+      "official-verification",
+      "all-india"
+    ]
+  },
+  {
+    "title": "Pradhan Mantri Krishi Sinchayee Yojana official-verification reference",
+    "name": "Pradhan Mantri Krishi Sinchayee Yojana",
+    "state": "all",
+    "deadline": "Confirm the current deadline on the official portal",
+    "guidance": "Confirm the relevant irrigation component and state process.",
+    "source_name": "Pradhan Mantri Krishi Sinchayee Yojana official portal",
+    "source_url": "https://pmksy.gov.in/",
+    "source_updated_at": "2026-07-31",
+    "review_status": "synthetic_reference",
+    "tags": [
+      "scheme",
+      "official-verification",
+      "all-india"
+    ]
   }
 ]

@@ -2,14 +2,14 @@
 
 ## Local setup
 
-Use Python 3.10+ for the FastAPI demonstrator and Node.js 20+ for the officer
+Use Python 3.10+ for FastAPI and Node.js 22+ for the officer
 dashboard.
 
 ```powershell
 Copy-Item .env.example .env
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
-python -m pip install -r requirements.txt
+python -m pip install -r requirements-dev.txt
 python -m uvicorn app.main:app --app-dir backend --reload
 ```
 
@@ -28,7 +28,7 @@ The API serves `http://127.0.0.1:8000` and the dashboard serves
 ## Repository boundaries
 
 - `backend/app/` owns API contracts, workflow, and local adapters.
-- `data/seed/` holds reviewed synthetic farmers and knowledge facts.
+- `data/seed/` holds generated synthetic evaluation profiles and references.
 - `backend/app/services/memory.py` is the only local persistence boundary for
   advisory episodes and review cases.
 - `frontend/` is a Vite/React review interface. It does not decide safety or
@@ -47,6 +47,7 @@ The API serves `http://127.0.0.1:8000` and the dashboard serves
 
 ## Configuration
 
-`.env.example` documents optional future-facing Lyzr and Qdrant values. The
-current local workflow does not use credentials and operates from seed JSON.
+`.env.example` documents both production provider settings and the optional
+future Lyzr boundary. The local demo does not use credentials and operates from
+seed JSON; production uses Gemini, PostgreSQL, Qdrant/FastEmbed, and live tools.
 `frontend/.env.example` contains the independent dashboard API base URL.

@@ -100,4 +100,11 @@ export const languageLabels: Record<string, string> = {
   hi: "Hindi",
   kn: "Kannada",
   te: "Telugu",
+  pa: "Punjabi",
+  gu: "Gujarati",
+  ta: "Tamil",
+  or: "Odia",
+  bn: "Bengali",
+  as: "Assamese",
+  ml: "Malayalam",
 };

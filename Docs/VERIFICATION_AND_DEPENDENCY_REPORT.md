@@ -10,8 +10,9 @@ local synthetic-data `demo` runtime; it makes **no external API calls** and is
 not a production advisory service. It reads checked-in seed JSON and writes
 local runtime JSON.
 
-The `production` runtime is now implemented behind explicit adapters. It uses
-Gemini for schema-constrained planning/drafting, PostgreSQL for durable state,
+The `production` runtime is implemented behind explicit adapters. It uses
+separate Gemini calls for schema-constrained routing, specialist drafting, and
+reflection, PostgreSQL for durable state,
 Qdrant for filtered retrieval, and live AgriStack/weather/market gateways. It
 refuses to start without its provider configuration, authentication, and
 telemetry endpoint, so it cannot silently use demo data. No live credentials or
@@ -26,23 +27,24 @@ or embedded credentials.
 
 | Check | Result | Evidence |
 |---|---|---|
-| Backend tests | Pass | `python -m pytest -q` — **29 passed** |
-| Backend lint | Pass | `python -m ruff check backend tests` — all checks passed |
+| Backend tests | Pass | `python -m pytest -q` — **36 passed** |
+| Backend lint | Pass | `python -m ruff check backend tests scripts` — all checks passed |
 | Frontend component tests | Pass | `npm test` — 3 review-safety tests passed |
-| Browser end-to-end test | Pass | `npm run test:e2e` — Playwright verified the local API/dashboard hard-safety path |
+| Browser end-to-end tests | Pass | `npm run test:e2e` — 3 Chromium journeys cover corpus/theme, agent telemetry, and hard-safety behavior |
 | Frontend typecheck and production build | Pass | `npm run build` — TypeScript and Vite build succeeded |
+| Frontend dependency audit | Pass | `npm audit` — 0 vulnerabilities after Vite 8 upgrade |
+| Compose and images | Pass | Compose config validated; API (695 MB) and Nginx UI (48.4 MB) images built and returned HTTP 200 in isolated smoke tests |
 | Static external-dependency scan | Reviewed | Searched backend/frontend/configuration for URLs, API-key fields, HTTP clients, Lyzr, and Qdrant references |
 
 Not performed in this verification pass:
 
-- A Docker container runtime smoke test. The local checkout has no `.env` file,
-  which is intentionally required by Compose after copying `.env.example`.
-- Any live integration test, because this demonstrator deliberately has no
-  live external API path or credentials.
+- A live-provider integration test. No AgriStack/market contracts, production
+  database, Qdrant tenant, OTLP collector, or Gemini credential is available in
+  this checkout.
 - A formal secret-scanning or penetration-testing run.
-- Dependency-advisory remediation. The test-tool installation reported two npm
-  advisories (one moderate and one high); they need human triage and a
-  compatibility-tested upgrade rather than an automatic `--force` change.
+- Full penetration, load, backup/restore, and disaster-recovery exercises.
+- Manual interactive-browser visual inspection. The browser-control surface was
+  unavailable; component tests, Chromium E2E, and production image checks passed.
 
 ## External APIs and network use
 
@@ -56,9 +58,9 @@ No external API is required or called.
   and the HITL queue.
 - `backend/app/services/consent.py` uses the local `synthetic_seed` consent
   adapter. It does not perform HTTP requests or use credentials.
-- `frontend/src/api.ts` defaults to `http://127.0.0.1:8000`, the local FastAPI
-  server. It can be redirected only by explicitly setting
-  `VITE_API_BASE_URL`.
+- `frontend/src/api.ts` uses the browser origin by default; local development
+  sets `VITE_API_BASE_URL=http://127.0.0.1:8000`, while the container uses the
+  same-origin Nginx gateway.
 
 ### Production runtime configuration
 
@@ -66,9 +68,10 @@ The repository contains placeholders for future integration work:
 
 | Item | Current status |
 |---|---|
-| `GEMINI_API_KEY`, `GEMINI_MODEL` | Required in production; the Gemini adapter returns typed JSON drafts with bounded retries |
+| `GEMINI_API_KEY`, `GEMINI_MODEL` | Required in production; the adapter performs typed router, specialist, and reflection calls with bounded retries |
 | `DATABASE_URL` | Required PostgreSQL system of record for production profiles, episodes, HITL cases, deletion receipts, and audit events |
 | `QDRANT_URL`, `QDRANT_API_KEY` and `qdrant-client` | Required in production for state-filtered semantic retrieval and farmer-scoped vector memory |
+| `fastembed==0.8.0` | CPU-only multilingual ONNX embeddings; the 384-dimension model is preloaded into the API image |
 | AgriStack and market gateway settings | Required in production; no source credential or contract is committed |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | Required in production; enables OpenTelemetry and `/metrics` instrumentation |
 | `LYZR_API_KEY`, `LYZR_WORKFLOW_ID`, `LYZR_BASE_URL` | Optional future orchestration configuration; no running code invokes Lyzr |
@@ -84,7 +87,7 @@ repeatable synthetic demo, but must be replaced or governed before production.
 
 | Category | Examples | Status |
 |---|---|---|
-| Synthetic farmer and knowledge data | Names, IDs, districts, crops, water/budget values, consent fixtures, crop/pest/scheme records in `data/seed/` | Intentional demo-only fixtures; every seed requires `synthetic_data: true` |
+| Synthetic farmer and knowledge data | 18 non-real profiles and 105 crop/pest/scheme references in `data/seed/` | Generated evaluation-only fixtures; knowledge records use `review_status=synthetic_reference` |
 | Safety rules | Water/budget checks and seeded pest protocol dose limits | Intentional deterministic controls; require agricultural-domain governance for production |
 | Thresholds and local defaults | HITL threshold `0.70`, local CORS origins, default local API URL/ports | Configurable through environment values where applicable; local defaults are intentional |
 | Dashboard scenarios | Demo questions and doses in `frontend/src/data.ts` | Intentional UX fixtures |
@@ -109,6 +112,10 @@ The local demonstrator now enforces the following:
 
 ## Local production-readiness additions
 
+- A nine-role agent registry and safe per-agent execution telemetry expose
+  model/tool/deterministic boundaries without exposing private reasoning.
+- A versioned 18-state evaluation corpus is generated deterministically with
+  provenance fields and an explicit dataset card.
 - Protected mode (`AUTH_REQUIRED=true`) requires `X-API-Key` authentication,
   role checks, and farmer assignment checks; non-development environments fail
   configuration when protected mode is disabled.
@@ -119,6 +126,11 @@ The local demonstrator now enforces the following:
   `pending_external_cleanup` receipt.
 - Safety output and queued cases include `safety_rule_set_version` so an
   approved release can be traced through the local workflow.
+- The operations UI has field/night themes, runtime and knowledge telemetry,
+  the expanded evaluation cohort, agent runs, and a memory-only internal
+  operator credential input.
+- Docker Compose now includes the Nginx-served UI with API proxying and health
+  checks in addition to the API, PostgreSQL, and Qdrant.
 
 ## Human-owned production gates
 
@@ -138,8 +150,9 @@ The complete owner/action/evidence list is in
 
 ## Conclusion
 
-For a local, offline-style synthetic demonstration, the repository is built
-and validated with no external runtime API requirement. It is intentionally
-deterministic and does contain explicit demo fixtures, local URLs, and safety
-rules. Those values are visible and scoped to the demonstrator; they are not a
-replacement for production integrations or governance.
+The repository now has a real provider-backed production execution path and a
+clearly labelled deterministic evaluation fallback. Local behavior is built
+and tested without external credentials. Production activation remains blocked
+until the startup supplies and validates real provider contracts, governed
+agronomy content, identity infrastructure, and the human-owned launch evidence
+listed above.

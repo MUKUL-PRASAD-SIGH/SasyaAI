@@ -5,7 +5,7 @@
 SasyaAI has two deliberately separate shapes:
 
 - **Demonstrator:** a deterministic FastAPI workflow backed by checked-in synthetic data. It proves contracts, consent preflight, decision flow, verification, memory ownership, and HITL without claiming live-data or model capability.
-- **Production platform:** independently deployable agent, data, and delivery components connected to consent-gated government and earth-observation sources.
+- **Production platform:** a typed provider-backed graph connected to consent-gated government, weather, market, PostgreSQL, and Qdrant sources.
 
 The demonstrator is an architectural thin slice of the production target, not a mock that bypasses safety controls.
 
@@ -41,13 +41,13 @@ flowchart LR
 |---|---|---|
 | API | `backend/app/main.py` FastAPI routes | Gateway, OAuth2/JWT, rate limiting, audit middleware |
 | Consent gate | Typed, fail-closed synthetic fixture adapter with purpose, scope, lifecycle, and provenance checks | Authenticated consent receipt verifier and revocation/cleanup workflow |
-| Orchestration | Deterministic `AdvisoryService` | Lyzr SuperFlow and/or typed Google ADK graph |
+| Orchestration | Deterministic `AdvisoryService` with the production response contract | Implemented typed Root Manager with Gemini router, specialist, and reflection calls |
 | Agent tools | Seed JSON and predictable context | AgriStack, IMD, eNAM, Bhuvan, CGWB, scheme, and ML adapters |
-| Knowledge retrieval | Lexical ranking over seed JSON | Qdrant hybrid retrieval with payload filters and embedding lifecycle |
-| Digital twin | Synthetic JSON profile | Versioned PostgreSQL/PostGIS state, encrypted sensitive fields |
+| Knowledge retrieval | Lexical ranking over 105 synthetic records | Implemented Qdrant vector retrieval with mandatory payload filters and governed ingest |
+| Digital twin | 18 synthetic JSON profiles | Implemented PostgreSQL state; PostGIS/encryption remain deployment gates |
 | Episodic memory | Runtime JSON under ignored `var/` | Qdrant `farmer_memory`, retention and export/deletion controls |
 | Verification | Deterministic demo water, cost, weather, scheme, and dose checks | Versioned rules engine, authoritative data freshness and audit evidence |
-| HITL | Runtime JSON review queue | Authenticated extension-officer dashboard and durable workflow queue |
+| HITL | Runtime JSON review queue | Implemented PostgreSQL queue, row-locked decisions, and role-protected operations UI |
 
 ## 4. Mandatory request flow
 
@@ -62,11 +62,11 @@ sequenceDiagram
 
     U->>A: Query + farmer ID
     A->>A: Preflight a typed consent receipt before any profile or memory access
-    A->>O: Classify intent and build task graph
+    A->>O: Gemini router returns a typed task graph
     O->>M: Read twin and retrieve context
     M-->>O: Filtered knowledge and episode context
-    O->>O: Run specialist tasks and draft advice
-    O->>O: Reflection for relevance, units, and clarity
+    O->>O: One Gemini specialist returns a typed grounded draft
+    O->>O: Gemini reflection passes or performs one bounded revision
     O->>V: Apply deterministic constraints
     alt pass and confidence >= 0.70
         V-->>A: Verified response and reasoning trace
@@ -131,7 +131,7 @@ The full consent, threat, RBAC, incident, and retention specifications are in [S
 | Stage | Runtime | Data | Operational minimum |
 |---|---|---|---|
 | Local demo | Uvicorn or Docker Compose | Synthetic seed JSON, optional local Qdrant | Test suite, no real credentials |
-| Integration | Containerized staging | Qdrant + PostgreSQL, AgriStack Sandbox | Secret store, sandbox consent tests, structured logs |
+| Integration | Containerized staging | Qdrant + PostgreSQL, approved AgriStack gateway | Secret store, provider contract tests, OTLP traces |
 | Pilot | Indian-cloud staging | Governed pilot records | RBAC, auditing, monitoring, backup/restore drills |
 | Production | Kubernetes with autoscaling | Managed encrypted stores | CI/CD gates, observability, incident response, DR |
 
@@ -141,6 +141,7 @@ The full consent, threat, RBAC, incident, and retention specifications are in [S
 backend/app/       API, domain contracts, workflow, and adapters
 data/seed/         only synthetic, reviewed demonstration data
 frontend/          extension-officer dashboard scaffold
+scripts/           deterministic evaluation-corpus tooling
 ml/                model interfaces, datasets policy, evaluation plans
 infra/             deployment and observability assets
 Docs/              canonical engineering and product documentation

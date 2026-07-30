@@ -3,6 +3,11 @@ import { useEffect, useMemo, useState, type FormEvent } from "react";
 import {
   ApiError,
   apiBaseUrl,
+  configureApiKey,
+  getKnowledgeStats,
+  getRuntimeHealth,
+  listAgents,
+  listDemoFarmers,
   listHitlCases,
   submitHitlDecision,
   submitQuery,
@@ -12,15 +17,20 @@ import {
   languageLabels,
   queryScenarios,
   syntheticFarmers,
+  type SyntheticFarmer,
 } from "./data";
 import type {
   AdvisoryResponse,
+  AgentDescriptor,
+  AgentRun,
   CaseStatus,
   Decision,
   Evidence,
   HitlCase,
   Intent,
+  KnowledgeStats,
   QueryRequest,
+  RuntimeHealth,
   TraceEvent,
   VerificationCheck,
 } from "./types";
@@ -89,7 +99,7 @@ function getErrorMessage(error: unknown): string {
   if (error instanceof ApiError) {
     return error.message;
   }
-  return "Something went wrong while contacting the demonstrator.";
+  return "Something went wrong while contacting the advisory runtime.";
 }
 
 function VerificationList({ checks }: { checks: VerificationCheck[] }) {
@@ -152,7 +162,44 @@ function TraceList({ trace }: { trace: TraceEvent[] }) {
   );
 }
 
+function AgentRunList({ runs }: { runs: AgentRun[] }) {
+  return (
+    <ol className="agent-run-list">
+      {runs.map((run, index) => (
+        <li key={`${run.agent_id}-${index}`} className={`agent-run agent-${run.status}`}>
+          <div className="agent-run-index" aria-hidden="true">
+            {String(index + 1).padStart(2, "0")}
+          </div>
+          <div className="agent-run-copy">
+            <div className="agent-run-title">
+              <strong>{run.name}</strong>
+              <span className={`mode-chip mode-${run.execution_mode}`}>
+                {run.execution_mode === "llm" ? run.model || "LLM" : run.execution_mode}
+              </span>
+            </div>
+            <p>{run.summary}</p>
+            <small>
+              {run.duration_ms} ms
+              {run.input_sources.length > 0 ? ` · ${run.input_sources.join(" · ")}` : ""}
+            </small>
+          </div>
+        </li>
+      ))}
+    </ol>
+  );
+}
+
 function App() {
+  const [farmers, setFarmers] = useState<SyntheticFarmer[]>(syntheticFarmers);
+  const [runtime, setRuntime] = useState<RuntimeHealth | null>(null);
+  const [agents, setAgents] = useState<AgentDescriptor[]>([]);
+  const [knowledge, setKnowledge] = useState<KnowledgeStats | null>(null);
+  const [systemError, setSystemError] = useState<string | null>(null);
+  const [apiKey, setApiKey] = useState("");
+  const [accessStatus, setAccessStatus] = useState<string | null>(null);
+  const [theme, setTheme] = useState<"field" | "night">(() =>
+    window.localStorage.getItem("sasya-theme") === "night" ? "night" : "field",
+  );
   const [queryForm, setQueryForm] = useState<QueryForm>(initialQueryForm);
   const [scenarioId, setScenarioId] = useState(initialScenario.id);
   const [response, setResponse] = useState<AdvisoryResponse | null>(null);
@@ -167,8 +214,8 @@ function App() {
   const [isDeciding, setIsDeciding] = useState(false);
 
   const selectedFarmer = useMemo(
-    () => syntheticFarmers.find((farmer) => farmer.id === queryForm.farmerId),
-    [queryForm.farmerId],
+    () => farmers.find((farmer) => farmer.id === queryForm.farmerId),
+    [farmers, queryForm.farmerId],
   );
   const activeCase = useMemo(
     () => cases.find((caseItem) => caseItem.case_id === activeCaseId) ?? null,
@@ -177,9 +224,9 @@ function App() {
   const activeCaseFarmer = useMemo(
     () =>
       activeCase
-        ? syntheticFarmers.find((farmer) => farmer.id === activeCase.farmer_id)
+        ? farmers.find((farmer) => farmer.id === activeCase.farmer_id)
         : undefined,
-    [activeCase],
+    [activeCase, farmers],
   );
   const activeCaseHasHardSafetyFailure = useMemo(
     () => activeCase?.verification?.some((check) => check.status === "fail") ?? false,
@@ -198,16 +245,74 @@ function App() {
         }
         return nextCases[0]?.case_id ?? null;
       });
+      return true;
     } catch (error) {
       setQueueError(getErrorMessage(error));
+      return false;
     } finally {
       setIsLoadingQueue(false);
     }
   }
 
+  async function refreshSystemContext() {
+    const [healthResult, agentResult, knowledgeResult, farmerResult] =
+      await Promise.allSettled([
+        getRuntimeHealth(),
+        listAgents(),
+        getKnowledgeStats(),
+        listDemoFarmers(),
+      ]);
+
+    if (healthResult.status === "fulfilled") {
+      setRuntime(healthResult.value);
+    }
+    if (agentResult.status === "fulfilled") {
+      setAgents(agentResult.value);
+    }
+    if (knowledgeResult.status === "fulfilled") {
+      setKnowledge(knowledgeResult.value);
+    }
+    if (farmerResult.status === "fulfilled" && farmerResult.value.length > 0) {
+      setFarmers(
+        farmerResult.value.map((farmer) => ({
+          id: farmer.farmer_id,
+          name: farmer.name,
+          state: farmer.state,
+          district: farmer.district,
+          preferredLanguage: farmer.preferred_language,
+          crop: farmer.current_crop,
+          season: farmer.season,
+          waterBudget: farmer.water_budget_mm,
+        })),
+      );
+    }
+
+    if (
+      healthResult.status === "rejected" ||
+      agentResult.status === "rejected" ||
+      knowledgeResult.status === "rejected"
+    ) {
+      setSystemError(
+        "Some runtime telemetry is unavailable. Advisory safety gates remain authoritative.",
+      );
+    } else {
+      setSystemError(null);
+    }
+    return agentResult.status === "fulfilled" && knowledgeResult.status === "fulfilled";
+  }
+
   useEffect(() => {
     void refreshQueue();
   }, []);
+
+  useEffect(() => {
+    void refreshSystemContext();
+  }, []);
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    window.localStorage.setItem("sasya-theme", theme);
+  }, [theme]);
 
   useEffect(() => {
     setReviewError(null);
@@ -233,12 +338,28 @@ function App() {
   }
 
   function selectFarmer(farmerId: string) {
-    const farmer = syntheticFarmers.find((item) => item.id === farmerId);
+    const farmer = farmers.find((item) => item.id === farmerId);
     setQueryForm((current) => ({
       ...current,
       farmerId,
       language: farmer?.preferredLanguage ?? current.language,
     }));
+  }
+
+  async function handleAccess(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    configureApiKey(apiKey);
+    setAccessStatus("Checking role-scoped access…");
+    const [systemReady, queueReady] = await Promise.all([
+      refreshSystemContext(),
+      refreshQueue(),
+    ]);
+    setAccessStatus(
+      systemReady && queueReady
+        ? "Access key is active in memory for this browser tab."
+        : "The key was not accepted for all operator routes.",
+    );
+    setApiKey("");
   }
 
   async function handleQuery(event: FormEvent<HTMLFormElement>) {
@@ -285,7 +406,7 @@ function App() {
     setReviewError(null);
     if (activeCaseHasHardSafetyFailure && reviewForm.decision !== "reject") {
       setReviewError(
-        "Cases with failed deterministic safety checks can only be rejected in this demonstrator.",
+        "Cases with failed deterministic safety checks can only be rejected.",
       );
       return;
     }
@@ -327,39 +448,143 @@ function App() {
     <main className="app-shell">
       <header className="topbar">
         <a className="brand" href="#workspace" aria-label="SasyaAI extension desk home">
-          <span className="brand-mark" aria-hidden="true">S</span>
+          <span className="brand-mark" aria-hidden="true">सा</span>
           <span>
             <strong>SasyaAI</strong>
-            <small>Extension desk</small>
+            <small>Agent operations</small>
           </span>
         </a>
-        <div className="demo-badge">
-          <span aria-hidden="true">●</span>
-          Synthetic-data demonstrator
+        <div className="topbar-actions">
+          <div className={`runtime-badge runtime-${runtime?.runtime_mode ?? "connecting"}`}>
+            <span aria-hidden="true">●</span>
+            {runtime
+              ? `${runtime.runtime_mode} · ${runtime.agent_execution}`
+              : "Connecting to runtime"}
+          </div>
+          <button
+            className="theme-toggle"
+            type="button"
+            aria-label={`Switch to ${theme === "field" ? "night" : "field"} theme`}
+            onClick={() => setTheme((current) => (current === "field" ? "night" : "field"))}
+          >
+            <span aria-hidden="true">{theme === "field" ? "◐" : "☀"}</span>
+            {theme === "field" ? "Night" : "Field"}
+          </button>
         </div>
       </header>
 
       <section className="hero" id="workspace">
         <div>
-          <p className="eyebrow">Safety-gated advisory review</p>
-          <h1>See the evidence. Check the guardrails. Decide with context.</h1>
+          <p className="eyebrow">Governed agricultural intelligence</p>
+          <h1>One field question. A coordinated team of accountable agents.</h1>
           <p>
-            A local demonstrator for extension officers. Pending recommendations are never shown as
-            final farmer advice.
+            Route, retrieve, reason, reflect, and verify every advisory—with live connectors,
+            source provenance, and human authority at the final safety boundary.
           </p>
         </div>
-        <dl className="hero-facts" aria-label="Demonstrator facts">
+        <dl className="hero-facts" aria-label="Runtime facts">
           <div>
-            <dt>Farmers</dt>
-            <dd>3 synthetic profiles</dd>
+            <dt>Agent team</dt>
+            <dd>{agents.length || 9} governed roles</dd>
           </div>
           <div>
-            <dt>Threshold</dt>
-            <dd>70% confidence</dd>
+            <dt>Knowledge</dt>
+            <dd>
+              {knowledge
+                ? `${knowledge.total_documents} records`
+                : "Loading coverage"}
+            </dd>
           </div>
           <div>
-            <dt>API</dt>
-            <dd>{apiBaseUrl}</dd>
+            <dt>Storage</dt>
+            <dd>
+              {knowledge
+                ? knowledge.runtime_mode === "production"
+                  ? "Postgres · Qdrant"
+                  : "Versioned seed files"
+                : "Connecting"}
+            </dd>
+          </div>
+        </dl>
+      </section>
+
+      {systemError && <p className="system-notice" role="status">{systemError}</p>}
+
+      {runtime?.runtime_mode === "production" && (
+        <form className="access-form" onSubmit={handleAccess}>
+          <div>
+            <strong>Operator access</strong>
+            <span>
+              Enter a role-scoped API key. It stays in memory only and is cleared on reload.
+            </span>
+          </div>
+          <label>
+            <span className="sr-only">Operator API key</span>
+            <input
+              type="password"
+              autoComplete="off"
+              value={apiKey}
+              onChange={(event) => setApiKey(event.target.value)}
+              placeholder="Role-scoped API key"
+              minLength={24}
+              required
+            />
+          </label>
+          <button className="secondary-button" type="submit">Connect</button>
+          {accessStatus && <small role="status">{accessStatus}</small>}
+        </form>
+      )}
+
+      <section className="operations-strip" aria-labelledby="operations-heading">
+        <div className="operations-copy">
+          <p className="eyebrow">Runtime topology</p>
+          <h2 id="operations-heading">Specialists work; the verifier controls delivery.</h2>
+          <p>
+            The activity contract exposes concise operational summaries, inputs, model identity,
+            confidence, and latency. It never exposes private chain-of-thought.
+          </p>
+        </div>
+        <div className="agent-roster">
+          {(agents.length > 0
+            ? agents
+            : [
+                { agent_id: "intent_router", name: "Intent Router", kind: "reasoning" },
+                { agent_id: "specialist", name: "Domain Specialist", kind: "reasoning" },
+                { agent_id: "reflection_agent", name: "Reflection Agent", kind: "reasoning" },
+                { agent_id: "safety_verifier", name: "Safety Verifier", kind: "safety" },
+              ]
+          ).map((agent, index) => (
+            <div className="roster-agent" key={agent.agent_id}>
+              <span className="roster-number">{String(index + 1).padStart(2, "0")}</span>
+              <div>
+                <strong>{agent.name}</strong>
+                <small>
+                  {agent.kind === "reasoning" || agent.kind === "manager"
+                    ? "LLM"
+                    : agent.kind === "safety"
+                      ? "deterministic"
+                      : "tool"}
+                </small>
+              </div>
+            </div>
+          ))}
+        </div>
+        <dl className="coverage-grid" aria-label="Knowledge coverage">
+          <div>
+            <dt>Regions</dt>
+            <dd>{knowledge?.regions ?? "—"}</dd>
+          </div>
+          <div>
+            <dt>Crops</dt>
+            <dd>{knowledge?.crops ?? "—"}</dd>
+          </div>
+          <div>
+            <dt>Profiles</dt>
+            <dd>{farmers.length}</dd>
+          </div>
+          <div>
+            <dt>Safety threshold</dt>
+            <dd>70%</dd>
           </div>
         </dl>
       </section>
@@ -372,7 +597,9 @@ function App() {
                 <p className="eyebrow">Advisory simulator</p>
                 <h2 id="advisory-heading">Run a safety-gated query</h2>
               </div>
-              <span className="live-indicator">Local API</span>
+              <span className="live-indicator">
+                {runtime?.runtime_mode === "production" ? "Production API" : "Evaluation API"}
+              </span>
             </div>
 
             <div className="form-grid">
@@ -382,7 +609,7 @@ function App() {
                   value={queryForm.farmerId}
                   onChange={(event) => selectFarmer(event.target.value)}
                 >
-                  {syntheticFarmers.map((farmer) => (
+                  {farmers.map((farmer) => (
                     <option key={farmer.id} value={farmer.id}>
                       {farmer.name} · {farmer.district}, {farmer.state}
                     </option>
@@ -542,12 +769,24 @@ function App() {
                   <div className="panel-heading">
                     <div>
                       <p className="eyebrow">Grounding</p>
-                      <h3 id="evidence-heading">Seeded evidence</h3>
+                <h3 id="evidence-heading">Grounded evidence</h3>
                     </div>
                     <span className="count-pill">{response.evidence.length} records</span>
                   </div>
                   <EvidenceList evidence={response.evidence} />
                 </section>
+                {response.agent_runs.length > 0 && (
+                  <section className="panel agents-panel" aria-labelledby="agent-runs-heading">
+                    <div className="panel-heading">
+                      <div>
+                        <p className="eyebrow">Agent execution</p>
+                        <h3 id="agent-runs-heading">Coordinated run</h3>
+                      </div>
+                      <span className="count-pill">{response.agent_runs.length} agents</span>
+                    </div>
+                    <AgentRunList runs={response.agent_runs} />
+                  </section>
+                )}
                 <section className="panel trace-panel" aria-labelledby="trace-heading">
                   <div className="panel-heading">
                     <div>
@@ -667,12 +906,19 @@ function App() {
                 </details>
               )}
 
+              {activeCase.agent_runs && activeCase.agent_runs.length > 0 && (
+                <details className="case-details">
+                  <summary>Review agent execution ({activeCase.agent_runs.length})</summary>
+                  <AgentRunList runs={activeCase.agent_runs} />
+                </details>
+              )}
+
               {activeCase.status === "pending" ? (
                 <form className="review-form" onSubmit={handleDecision}>
                   {activeCaseHasHardSafetyFailure && (
                     <div className="review-callout safety-block-callout" role="alert">
-                      <strong>Hard safety check failed.</strong> This demonstrator permits only rejection
-                      for this case. Start a fresh, safely parameterised request for a revised advisory.
+                      <strong>Hard safety check failed.</strong> Policy permits only rejection for this
+                      case. Start a fresh, safely parameterised request for a revised advisory.
                     </div>
                   )}
                   <label>

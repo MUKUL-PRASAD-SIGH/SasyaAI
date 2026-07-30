@@ -10,17 +10,34 @@
     "consent_id": "SYN_CONSENT_TG_005678",
     "status": "granted",
     "purpose": "agricultural_advisory",
-    "scopes": ["farmer_profile", "advisory", "advisory_memory"],
-    "granted_at": "2026-07-03T11:30:00Z",
+    "scopes": [
+      "farmer_profile",
+      "advisory",
+      "advisory_memory"
+    ],
+    "granted_at": "2026-07-01T09:00:00Z",
     "expires_at": "2030-12-31T23:59:59Z",
     "revoked_at": null
   },
   "digital_twin": {
     "season": "Kharif",
     "current_crop": "paddy",
-    "soil_fertility": "good",
+    "soil_fertility": "moderate",
     "water_budget_mm": 330,
-    "budget_inr": 75000,
-    "eligible_schemes": ["PM-KISAN"]
+    "budget_inr": 85000,
+    "eligible_schemes": [
+      "PM-KISAN",
+      "PMFBY",
+      "Soil Health Card"
+    ],
+    "weather_alert": false,
+    "farm_size_hectares": 1.2,
+    "soil_type": "clay loam",
+    "irrigation_type": "mixed",
+    "risk_flags": []
+  },
+  "location": {
+    "latitude": 17.97,
+    "longitude": 79.59
   }
 }
