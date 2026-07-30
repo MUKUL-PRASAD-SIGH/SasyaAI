@@ -2,14 +2,29 @@
 
 Base URL for local development: `http://127.0.0.1:8000`.
 
-The local API operates only on checked-in synthetic data. It has no authentication because it is not a production deployment. Production endpoints will require OAuth2/JWT, scope checks, consent verification, rate limiting, request IDs, audit logging, and versioned deprecation policy.
+The local API operates only on checked-in synthetic data. In development it
+uses an explicit local bypass. When `AUTH_REQUIRED=true`, all `/api/v1/*`
+routes require an `X-API-Key` configured through `AUTH_PRINCIPALS_JSON`; roles
+and farmer assignments are enforced, protected actions are rate-limited, and
+data-minimised audit metadata is retained locally. This API-key adapter is a
+testable gateway boundary, not a replacement for production OAuth2/OIDC/JWT.
 
 ## Conventions
 
 - JSON request and response bodies use UTF-8.
-- `400` indicates malformed content, `403` indicates consent is not currently valid for the requested advisory use, `404` indicates an unknown demo resource, `422` indicates a schema-validation failure, and `503` indicates a local state or consent-adapter failure that is blocked from delivery.
+- `400` indicates malformed content, `401` invalid/missing authentication in protected mode, `403` insufficient role/assignment or invalid advisory consent, `404` an unknown demo resource, `422` a schema-validation failure, `429` a rate-limit response, and `503` a local state or consent-adapter failure that is blocked from delivery.
 - Advisory response `status` is either `delivered` or `requires_human_review`.
 - A response is never auto-delivered when a verification check fails or confidence is below `0.70`.
+- Every advisory and queued case carries the configured `safety_rule_set_version` for review traceability.
+
+## Local protected-mode configuration
+
+Set `AUTH_REQUIRED=true` and provide `AUTH_PRINCIPALS_JSON` only from a secret
+manager. It is a JSON array of API-key records with `subject`, `roles`, and
+`allowed_farmer_ids`; never commit it or expose an API key to the dashboard.
+The allowed roles are `farmer`, `extension_officer`, and `system_admin` for
+the currently implemented protected endpoints. Replace this adapter with an
+approved OIDC/JWT gateway before production.
 
 ## `GET /health`
 
@@ -95,8 +110,8 @@ allows only `reject`; `approve` and `edit_and_approve` return `409`. An officer
 must start a fresh, safely parameterised request rather than override a hard
 safety check.
 
-This is an unauthenticated synthetic-data demonstration endpoint. Production
-must scope cases to an assigned, authorised reviewer.
+In protected mode this endpoint is restricted to `extension_officer` and
+`system_admin`; a non-admin receives only cases for assigned farmer IDs.
 
 ## `POST /api/v1/hitl/{case_id}/decision`
 
@@ -121,6 +136,21 @@ the original decision cannot be overwritten.
 
 Production must additionally enforce reviewer authentication, assignment,
 evidence-view audit events, durable immutable storage, and retention policy.
+
+## `GET /api/v1/audit`
+
+Returns data-minimised local audit metadata to `system_admin` callers in
+protected mode. It never records question text, consent payloads, or API keys.
+Production must export the same event contract to durable, access-controlled
+audit infrastructure.
+
+## `DELETE /api/v1/farmers/{farmer_id}/runtime-data`
+
+Restricted to `system_admin` in protected mode. It purges local advisory-memory
+and HITL runtime records, then creates a `pending_external_cleanup` receipt.
+Checked-in synthetic seed fixtures deliberately remain immutable. A human must
+complete and evidence deletion with every real provider, backup, and retention
+owner before closing a production request.
 
 ## Planned API surface
 

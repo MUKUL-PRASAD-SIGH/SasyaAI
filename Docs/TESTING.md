@@ -13,16 +13,28 @@ python -m pytest -q
 python -m ruff check backend tests
 ```
 
-The API tests cover a delivered crop plan, a Karnataka water-budget regression,
-low-confidence diagnosis routing, unsafe-dose blocking, consent denial, HITL
-context, immutable decision behavior, and basic error handling.
+The API tests cover delivered advice, a Karnataka water-budget regression,
+low-confidence diagnosis routing, unsafe-dose blocking, consent denial,
+atomic HITL decisions, protected-mode authentication/RBAC, farmer assignments,
+rate limits, audit metadata, local retention/deletion, and controlled errors.
 
 Build the extension-officer dashboard separately:
 
 ```powershell
 Set-Location frontend
 npm ci
+npm test
 npm run build
+```
+
+The component suite covers case-bound review context, case-switch form resets,
+and edit validation. The browser suite starts the local FastAPI and Vite
+servers, then verifies that a failed deterministic safety case offers only
+rejection:
+
+```powershell
+npx playwright install chromium
+npm run test:e2e
 ```
 
 ## Manual demo checks
@@ -33,10 +45,10 @@ npm run build
 3. Run **Leaf spots** and confirm the response is labelled *Awaiting human
    review*, with a review case containing the draft, evidence, checks, and
    trace.
-4. Use **Edit and approve** with a reviewer note and edited recommendation.
-   Confirm the decision history appears, then verify a second decision is
-   rejected by the API.
+4. Use **Edit and approve** only for the low-confidence **Leaf spots** case,
+   then confirm a second decision is rejected by the API.
 5. Run **Aphid dose · blocked** and confirm a 3 ml/L dose is never delivered.
+   Its review form must offer only **Reject draft**.
 
 ## Test data and boundaries
 
@@ -47,3 +59,5 @@ npm run build
   unrelated packages with conflicting binary dependencies.
 - Any change to safety thresholds, knowledge records, or verifier logic needs
   a new regression test and agricultural-domain review.
+- Browser E2E tests require the Playwright browser download; CI installs it
+  before running `npm run test:e2e`.

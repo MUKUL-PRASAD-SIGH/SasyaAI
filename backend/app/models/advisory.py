@@ -48,6 +48,7 @@ class TraceEvent(BaseModel):
 class AdvisoryResponse(BaseModel):
     request_id: str
     farmer_id: str
+    safety_rule_set_version: str = Field(min_length=1, max_length=100)
     intent: Intent
     status: Literal["delivered", "requires_human_review"]
     confidence: float = Field(ge=0, le=1)
@@ -105,6 +106,7 @@ class HITLCase(BaseModel):
     status: Literal["pending", "approved", "rejected"]
     reason: str
     request_id: str | None = None
+    safety_rule_set_version: str | None = Field(default=None, min_length=1, max_length=100)
     intent: Intent | None = None
     confidence: float | None = Field(default=None, ge=0, le=1)
     original_recommendation: str | None = None

@@ -32,6 +32,7 @@ export interface TraceEvent {
 export interface AdvisoryResponse {
   request_id: string;
   farmer_id: string;
+  safety_rule_set_version: string;
   intent: Intent;
   status: "delivered" | "requires_human_review";
   confidence: number;
@@ -64,6 +65,7 @@ export interface HitlCase {
   status: CaseStatus;
   reason: string;
   request_id?: string;
+  safety_rule_set_version?: string | null;
   intent?: Intent | null;
   confidence?: number | null;
   original_recommendation?: string;

@@ -17,6 +17,7 @@ from filelock import FileLock, Timeout
 from pydantic import BaseModel, ValidationError
 
 from app.models.advisory import HITLCase, MemoryEpisode
+from app.models.security import AuditEvent, DeletionRequest
 from app.models.seed import (
     CropKnowledgeSeed,
     FarmerSeed,
@@ -31,6 +32,21 @@ class SeedDataError(RuntimeError):
 
 class RuntimeStateError(RuntimeError):
     """Raised when local demo state cannot be safely read or persisted."""
+
+
+def _parse_runtime_timestamp(value: object) -> datetime:
+    """Parse persisted ISO timestamps consistently on Python 3.10+ runtimes."""
+
+    timestamp = str(value)
+    if timestamp.endswith("Z"):
+        timestamp = f"{timestamp[:-1]}+00:00"
+    try:
+        parsed = datetime.fromisoformat(timestamp)
+    except ValueError as error:
+        raise RuntimeStateError("Local runtime state has an invalid timestamp.") from error
+    if parsed.tzinfo is None:
+        raise RuntimeStateError("Local runtime state has a timezone-less timestamp.")
+    return parsed.astimezone(timezone.utc)
 
 
 class SeedRepository:
@@ -108,6 +124,11 @@ class SeedRepository:
     def get_farmer(self, farmer_id: str) -> dict[str, Any] | None:
         farmer = self._farmers.get(farmer_id)
         return copy.deepcopy(farmer) if farmer is not None else None
+
+    def has_farmer(self, farmer_id: str) -> bool:
+        """Check fixture identity without reading a farmer profile."""
+
+        return farmer_id in self._farmers
 
     def get_consent(self, farmer_id: str) -> dict[str, Any] | None:
         """Return only the validated synthetic consent fixture for a farmer."""
@@ -238,6 +259,32 @@ class LocalMemoryStore(_JsonListStore):
                 matches.append(episode | {"score": score})
         return sorted(matches, key=lambda item: item["score"], reverse=True)[:5]
 
+    def purge_farmer(self, farmer_id: str) -> int:
+        """Remove only local runtime episodes for a governed deletion request."""
+
+        with self._locked_transaction():
+            episodes = self._episodes_unlocked()
+            retained = [episode for episode in episodes if episode["farmer_id"] != farmer_id]
+            removed = len(episodes) - len(retained)
+            if removed:
+                self._write_unlocked(retained)
+            return removed
+
+    def purge_before(self, cutoff: datetime) -> int:
+        """Apply the configured local retention period to runtime episodes."""
+
+        with self._locked_transaction():
+            episodes = self._episodes_unlocked()
+            retained = [
+                episode
+                for episode in episodes
+                if _parse_runtime_timestamp(episode["timestamp"]) >= cutoff
+            ]
+            removed = len(episodes) - len(retained)
+            if removed:
+                self._write_unlocked(retained)
+            return removed
+
 
 @dataclass(frozen=True)
 class HITLDecisionOutcome:
@@ -296,6 +343,32 @@ class HITLQueue(_JsonListStore):
             cases = self._cases_unlocked()
         return sorted(cases, key=lambda case: str(case.get("created_at", "")), reverse=True)
 
+    def purge_farmer(self, farmer_id: str) -> int:
+        """Remove only local runtime HITL cases for a governed deletion request."""
+
+        with self._locked_transaction():
+            cases = self._cases_unlocked()
+            retained = [case for case in cases if case["farmer_id"] != farmer_id]
+            removed = len(cases) - len(retained)
+            if removed:
+                self._write_unlocked(retained)
+            return removed
+
+    def purge_before(self, cutoff: datetime) -> int:
+        """Apply the configured local retention period to runtime review cases."""
+
+        with self._locked_transaction():
+            cases = self._cases_unlocked()
+            retained = [
+                case
+                for case in cases
+                if not case["created_at"] or _parse_runtime_timestamp(case["created_at"]) >= cutoff
+            ]
+            removed = len(cases) - len(retained)
+            if removed:
+                self._write_unlocked(retained)
+            return removed
+
     def decide(
         self,
         case_id: str,
@@ -342,3 +415,50 @@ class HITLQueue(_JsonListStore):
                 return HITLDecisionOutcome(state="updated", case=copy.deepcopy(cases[index]))
 
         return HITLDecisionOutcome(state="not_found")
+
+
+class LocalAuditLog(_JsonListStore):
+    """Append-only, data-minimised audit metadata for protected API actions."""
+
+    def __init__(self, runtime_dir: Path) -> None:
+        super().__init__(runtime_dir, "audit_log.json")
+
+    @staticmethod
+    def _validate_event(event: dict[str, Any]) -> dict[str, Any]:
+        try:
+            return AuditEvent.model_validate(event).model_dump(mode="json")
+        except ValidationError as error:
+            raise RuntimeStateError("Local audit log has an invalid event.") from error
+
+    def append(self, event: dict[str, Any]) -> None:
+        validated_event = self._validate_event(event)
+        with self._locked_transaction():
+            events = [self._validate_event(item) for item in self._read_unlocked()]
+            events.append(validated_event)
+            self._write_unlocked(events)
+
+    def list(self, limit: int = 100) -> list[dict[str, Any]]:
+        with self._locked_transaction():
+            events = [self._validate_event(item) for item in self._read_unlocked()]
+        return sorted(events, key=lambda event: str(event["timestamp"]), reverse=True)[:limit]
+
+
+class LocalDeletionRequestStore(_JsonListStore):
+    """Append-only record of local purges that need external-system follow-up."""
+
+    def __init__(self, runtime_dir: Path) -> None:
+        super().__init__(runtime_dir, "deletion_requests.json")
+
+    @staticmethod
+    def _validate_request(request: dict[str, Any]) -> dict[str, Any]:
+        try:
+            return DeletionRequest.model_validate(request).model_dump(mode="json")
+        except ValidationError as error:
+            raise RuntimeStateError("Local deletion request has an invalid record.") from error
+
+    def append(self, request: dict[str, Any]) -> None:
+        validated_request = self._validate_request(request)
+        with self._locked_transaction():
+            requests = [self._validate_request(item) for item in self._read_unlocked()]
+            requests.append(validated_request)
+            self._write_unlocked(requests)

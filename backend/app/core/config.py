@@ -18,6 +18,13 @@ class Settings(BaseSettings):
     api_host: str = "0.0.0.0"
     api_port: int = 8000
     cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
+    auth_required: bool = False
+    auth_principals_json: str = ""
+    rate_limit_enabled: bool = True
+    rate_limit_requests: int = 120
+    rate_limit_window_seconds: int = 60
+    retention_days: int = 30
+    safety_rule_set_version: str = "synthetic-demo-2026.07"
 
     # Optional production-oriented integrations. The local demonstrator works
     # without them and uses deterministic seed data instead.

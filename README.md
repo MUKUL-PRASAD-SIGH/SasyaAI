@@ -10,13 +10,17 @@ This repository starts with a runnable synthetic-data demonstrator. It is delibe
 - Three synthetic farmers plus crop, pest, and scheme seed knowledge.
 - Intent routing for crop planning, pest diagnosis, and scheme queries.
 - Memory ownership boundary, typed synthetic-consent preflight with purpose/scope/expiry/revocation checks, reflection results, data-driven deterministic safety checks, and a confidence-based HITL route.
+- Local production-readiness controls: API-key authentication/RBAC when enabled, farmer assignment checks, in-process rate limits, data-minimised audit events, runtime retention, and governed local deletion requests.
 - Vite/React extension-officer dashboard for reviewing evidence, verification, trace, and pending cases.
+- Backend, component, and browser end-to-end regression suites for the supported demonstrator flow.
 - Docker Compose for the API and optional local Qdrant service.
 - Tests for delivered advice, low-confidence escalation, unsafe-dose blocking, and API errors.
 
 ## What is planned next
 
 The current service is a local workflow, not a production advisory system. Qdrant retrieval, Lyzr/ADK execution, AgriStack Sandbox adapters, PostgreSQL/PostGIS, real vision models, and the farmer/mobile experience are sequenced in [Docs/ROADMAP.md](Docs/ROADMAP.md).
+
+The local API deliberately starts in development-bypass mode. Before any non-local deployment, enable `AUTH_REQUIRED=true`, inject API credentials through a secret manager, and complete the human-owned gates in [Production Activation Checklist](Docs/PRODUCTION_ACTIVATION_CHECKLIST.md). Do not put an API key in a browser `VITE_*` variable.
 
 ## Quick start
 
@@ -55,6 +59,7 @@ Run the API first, then start the separate local dashboard in another terminal:
 Set-Location frontend
 Copy-Item .env.example .env
 npm install
+npm test
 npm run dev
 ```
 
@@ -62,6 +67,13 @@ Open `http://127.0.0.1:5173`. The dashboard defaults to the local API at
 `http://127.0.0.1:8000`; change `VITE_API_BASE_URL` in `frontend/.env` only when
 using a different endpoint. It deliberately labels review-pending advice as a
 draft and records an append-only demo decision history for each case.
+
+To run the local browser test after installing its Chromium test dependency:
+
+```powershell
+npx playwright install chromium
+npm run test:e2e
+```
 
 ### Example request
 
@@ -104,6 +116,8 @@ The seed records are synthetic. Do not add real farmer data, credentials, Aadhaa
 - [Deployment Guide](Docs/DEPLOYMENT.md)
 - [Security and Privacy](Docs/SECURITY.md)
 - [Development Guide](Docs/DEVELOPMENT.md)
+- [Verification and Dependency Report](Docs/VERIFICATION_AND_DEPENDENCY_REPORT.md)
+- [Production Activation Checklist](Docs/PRODUCTION_ACTIVATION_CHECKLIST.md)
 
 ## Contributing
 

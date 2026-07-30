@@ -2,6 +2,16 @@
 
 ---
 
+> **Implementation status (local demonstrator):** The code now provides a
+> development bypass plus an opt-in API-key/RBAC adapter, assignment checks,
+> in-process rate limiting, data-minimised local audit logs, local retention,
+> and runtime-deletion receipts. The architecture described below remains the
+> production target; it is not active until the human-owned gates in
+> [PRODUCTION_ACTIVATION_CHECKLIST.md](PRODUCTION_ACTIVATION_CHECKLIST.md) are
+> completed.
+
+---
+
 ## 1. Security Principles
 
 - **Privacy by Design**: Minimal data collection, purpose limitation, consent-first
@@ -307,4 +317,3 @@ sasyaai:admin:config         - Configure system parameters (admin)
 | Lodge complaint | Email: privacy@sasyaai.ai | Acknowledged in 24 hours |
 
 **Grievance Officer**: [Name], privacy@sasyaai.ai, +91-XXXXX-XXXXX
-

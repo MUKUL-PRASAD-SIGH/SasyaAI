@@ -585,6 +585,7 @@ function App() {
                   <li key={caseItem.case_id}>
                     <button
                       type="button"
+                      aria-label={`Review case ${caseItem.case_id}`}
                       className={`queue-case ${activeCase?.case_id === caseItem.case_id ? "is-selected" : ""}`}
                       onClick={() => setActiveCaseId(caseItem.case_id)}
                     >

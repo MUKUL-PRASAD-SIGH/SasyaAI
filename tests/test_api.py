@@ -6,6 +6,7 @@ from pathlib import Path
 from shutil import copytree
 
 import pytest
+from app.core.config import Settings
 from app.main import create_app
 from app.models.integration import ConsentScope
 from app.services.consent import ConsentAdapterUnavailableError, SyntheticConsentAdapter
@@ -15,6 +16,39 @@ from fastapi.testclient import TestClient
 
 def client_for(tmp_path):
     return TestClient(create_app(runtime_dir=tmp_path))
+
+
+def secured_settings(*, rate_limit_requests: int = 120) -> tuple[Settings, dict[str, str]]:
+    credentials = [
+        {
+            "api_key": "farmer-demo-key-0123456789abcdef",
+            "subject": "farmer-asha",
+            "roles": ["farmer"],
+            "allowed_farmer_ids": ["AGR_MH_001234"],
+        },
+        {
+            "api_key": "officer-demo-key-0123456789abcdef",
+            "subject": "officer-kulkarni",
+            "roles": ["extension_officer"],
+            "allowed_farmer_ids": ["AGR_MH_001234"],
+        },
+        {
+            "api_key": "admin-demo-key-0123456789abcdef0",
+            "subject": "security-admin",
+            "roles": ["system_admin"],
+        },
+    ]
+    settings = Settings(
+        auth_required=True,
+        auth_principals_json=json.dumps(credentials),
+        rate_limit_requests=rate_limit_requests,
+        rate_limit_window_seconds=60,
+    )
+    return settings, {
+        "farmer": credentials[0]["api_key"],
+        "officer": credentials[1]["api_key"],
+        "admin": credentials[2]["api_key"],
+    }
 
 
 def test_health_check(tmp_path):
@@ -498,3 +532,99 @@ def test_unknown_farmer_is_not_found(tmp_path):
     response = client_for(tmp_path).get("/api/v1/farmers/AGR_UNKNOWN")
 
     assert response.status_code == 404
+
+
+def test_api_key_authentication_roles_and_farmer_assignments(tmp_path):
+    settings, keys = secured_settings()
+    client = TestClient(create_app(runtime_dir=tmp_path, settings=settings))
+    farmer_headers = {"X-API-Key": keys["farmer"]}
+    officer_headers = {"X-API-Key": keys["officer"]}
+
+    unauthenticated = client.get("/api/v1/farmers/AGR_MH_001234")
+    assigned_farmer = client.get("/api/v1/farmers/AGR_MH_001234", headers=farmer_headers)
+    unassigned_farmer = client.get("/api/v1/farmers/AGR_KA_009012", headers=farmer_headers)
+    farmer_queue = client.get("/api/v1/hitl", headers=farmer_headers)
+    officer_queue = client.get("/api/v1/hitl", headers=officer_headers)
+
+    assert unauthenticated.status_code == 401
+    assert assigned_farmer.status_code == 200
+    assert unassigned_farmer.status_code == 403
+    assert farmer_queue.status_code == 403
+    assert officer_queue.status_code == 200
+
+
+def test_protected_requests_are_rate_limited_and_audited_without_query_content(tmp_path):
+    settings, keys = secured_settings(rate_limit_requests=1)
+    app = create_app(runtime_dir=tmp_path, settings=settings)
+    client = TestClient(app)
+    farmer_headers = {"X-API-Key": keys["farmer"]}
+    admin_headers = {"X-API-Key": keys["admin"]}
+
+    first_response = client.get("/api/v1/farmers/AGR_MH_001234", headers=farmer_headers)
+    throttled_response = client.get("/api/v1/farmers/AGR_MH_001234", headers=farmer_headers)
+    audit_response = client.get("/api/v1/audit", headers=admin_headers)
+
+    assert first_response.status_code == 200
+    assert throttled_response.status_code == 429
+    assert audit_response.status_code == 200
+    audit_events = audit_response.json()
+    farmer_event = next(event for event in audit_events if event["actor_subject"] == "farmer-asha")
+    assert farmer_event["resource"] == "farmer:AGR_MH_001234"
+    assert "Should I" not in json.dumps(farmer_event)
+
+
+def test_admin_runtime_deletion_purges_local_state_and_records_external_follow_up(tmp_path):
+    settings, keys = secured_settings()
+    app = create_app(runtime_dir=tmp_path, settings=settings)
+    client = TestClient(app)
+    farmer_headers = {"X-API-Key": keys["farmer"]}
+    admin_headers = {"X-API-Key": keys["admin"]}
+
+    query_response = client.post(
+        "/api/v1/query",
+        headers=farmer_headers,
+        json={
+            "farmer_id": "AGR_MH_001234",
+            "query": "Should I switch from cotton to soybean?",
+        },
+    )
+    deletion_response = client.delete(
+        "/api/v1/farmers/AGR_MH_001234/runtime-data",
+        headers=admin_headers,
+    )
+
+    assert query_response.status_code == 200
+    assert deletion_response.status_code == 200
+    deletion = deletion_response.json()
+    assert deletion["status"] == "pending_external_cleanup"
+    assert deletion["locally_purged_scopes"] == ["advisory_memory", "hitl_cases"]
+    assert app.state.advisory_service.memory.search("AGR_MH_001234", "soybean") == []
+    requests = json.loads((tmp_path / "deletion_requests.json").read_text(encoding="utf-8"))
+    assert requests[0]["farmer_id"] == "AGR_MH_001234"
+
+
+def test_local_runtime_retention_prunes_stale_advisory_memory_before_access(tmp_path):
+    (tmp_path / "farmer_memory.json").write_text(
+        json.dumps(
+            [
+                {
+                    "request_id": "old-request",
+                    "farmer_id": "AGR_MH_001234",
+                    "intent": "crop_plan_request",
+                    "query": "Old synthetic advisory",
+                    "outcome": "delivered",
+                    "timestamp": "2000-01-01T00:00:00Z",
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    app = create_app(runtime_dir=tmp_path, settings=Settings(retention_days=1))
+    response = TestClient(app).post(
+        "/api/v1/memory/search",
+        json={"farmer_id": "AGR_MH_001234", "query": "advisory"},
+    )
+
+    assert response.status_code == 200
+    assert response.json() == []

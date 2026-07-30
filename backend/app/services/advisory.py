@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from uuid import uuid4
 
@@ -74,6 +74,13 @@ class AdvisoryService:
         self.consent_adapter = consent_adapter or SyntheticConsentAdapter(self.repository)
         self.memory = LocalMemoryStore(active_runtime_dir)
         self.hitl = HITLQueue(active_runtime_dir)
+
+    def _apply_runtime_retention(self) -> None:
+        """Prune only local demo state; governed production retention is externally owned."""
+
+        cutoff = datetime.now(timezone.utc) - timedelta(days=self.settings.retention_days)
+        self.memory.purge_before(cutoff)
+        self.hitl.purge_before(cutoff)
 
     @staticmethod
     def classify_intent(query: str) -> Intent:
@@ -430,6 +437,7 @@ class AdvisoryService:
             request_id=request_id,
         )
         farmer = self._read_authorised_farmer(request.farmer_id, consent)
+        self._apply_runtime_retention()
 
         intent = request.intent or self.classify_intent(request.query)
         if intent == Intent.DIAGNOSE:
@@ -472,7 +480,10 @@ class AdvisoryService:
             TraceEvent(
                 stage="verifier",
                 status="completed",
-                detail="Executed deterministic water, budget, weather, scheme, and dose checks.",
+                detail=(
+                    "Executed deterministic water, budget, weather, scheme, and dose checks "
+                    f"using safety rule set {self.settings.safety_rule_set_version}."
+                ),
             ),
         ]
 
@@ -499,6 +510,7 @@ class AdvisoryService:
                     "status": "pending",
                     "reason": reason,
                     "request_id": request_id,
+                    "safety_rule_set_version": self.settings.safety_rule_set_version,
                     "intent": intent.value,
                     "confidence": draft.confidence,
                     "original_recommendation": draft.recommendation,
@@ -514,6 +526,7 @@ class AdvisoryService:
         response = AdvisoryResponse(
             request_id=request_id,
             farmer_id=request.farmer_id,
+            safety_rule_set_version=self.settings.safety_rule_set_version,
             intent=intent,
             status="requires_human_review" if needs_hitl else "delivered",
             confidence=draft.confidence,
@@ -542,6 +555,7 @@ class AdvisoryService:
             request.farmer_id,
             frozenset({ConsentScope.ADVISORY, ConsentScope.ADVISORY_MEMORY}),
         )
+        self._apply_runtime_retention()
         return self.memory.search(request.farmer_id, request.query)
 
     def get_farmer(self, farmer_id: str) -> dict[str, object]:
@@ -552,6 +566,7 @@ class AdvisoryService:
         return self._read_authorised_farmer(farmer_id, consent)
 
     def decide_hitl(self, case_id: str, request: HITLDecisionRequest) -> HITLCase | None:
+        self._apply_runtime_retention()
         case = self.hitl.decide(
             case_id,
             request.decision,
@@ -566,4 +581,22 @@ class AdvisoryService:
         return HITLCase(**case.case) if case.case else None
 
     def list_hitl_cases(self) -> list[HITLCase]:
+        self._apply_runtime_retention()
         return [HITLCase(**case) for case in self.hitl.list()]
+
+    def get_hitl_case(self, case_id: str) -> HITLCase | None:
+        case = self.hitl.get(case_id)
+        return HITLCase(**case) if case else None
+
+    def has_farmer(self, farmer_id: str) -> bool:
+        """Check the synthetic identity index for an administrative lifecycle request."""
+
+        return self.repository.has_farmer(farmer_id)
+
+    def purge_farmer_runtime_data(self, farmer_id: str) -> dict[str, int]:
+        """Purge only local runtime records; seed fixtures remain immutable evidence."""
+
+        return {
+            "advisory_memory": self.memory.purge_farmer(farmer_id),
+            "hitl_cases": self.hitl.purge_farmer(farmer_id),
+        }

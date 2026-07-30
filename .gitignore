@@ -51,6 +51,9 @@ env/
 .env
 .env.local
 .env.*.local
+.env.*
+!.env.example
+!.env.*.example
 
 # ─────────────────────────────────────────────────────────────────
 # 🤖 AI / ML MODEL ARTIFACTS
@@ -218,6 +221,7 @@ nosetests.xml
 test-results/
 junit.xml
 playwright-report/
+playwright/.cache/
 
 # ─────────────────────────────────────────────────────────────────
 # 📓 NOTEBOOKS & EXPERIMENTS
