@@ -36,6 +36,9 @@ Not performed in this verification pass:
 - Any live integration test, because this demonstrator deliberately has no
   live external API path or credentials.
 - A formal secret-scanning or penetration-testing run.
+- Dependency-advisory remediation. The test-tool installation reported two npm
+  advisories (one moderate and one high); they need human triage and a
+  compatibility-tested upgrade rather than an automatic `--force` change.
 
 ## External APIs and network use
 

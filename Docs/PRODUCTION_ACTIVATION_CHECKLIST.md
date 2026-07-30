@@ -30,7 +30,7 @@ rate limits are not sufficient production controls.
 | Evaluation | ML/domain lead | Assemble consented evaluation data, define target metrics and error budgets, and run regional/language validation | Dataset governance record, model/rule evaluation report, acceptance decision |
 | Durable data and backup | Data platform owner | Replace local JSON state with encrypted, access-controlled stores; define backup retention, restore testing, DSAR propagation, and data residency | Schema/migration review, backup-restore drill, retention policy |
 | Observability and incidents | SRE + security lead | Add production metrics, central audit export, SIEM integration, alerts, on-call ownership, and incident response exercises | Dashboard links, alert tests, incident tabletop record |
-| Security assurance | Security lead | Run dependency/container scanning, SAST, DAST, penetration testing, and remediation tracking | Scan reports, pen-test closure, risk acceptance where needed |
+| Security assurance | Security lead | Triage the current npm advisories, then run dependency/container scanning, SAST, DAST, penetration testing, and remediation tracking | Scan reports, pen-test closure, risk acceptance where needed |
 | Frontend and release | Frontend lead + QA | Connect the dashboard to approved browser authentication, run cross-browser/accessibility checks, and protect release environments | E2E results, accessibility report, release checklist |
 
 ## Configuration rules
