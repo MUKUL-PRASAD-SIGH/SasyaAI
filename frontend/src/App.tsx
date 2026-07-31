@@ -105,6 +105,10 @@ function getErrorMessage(error: unknown): string {
   return "Something went wrong while contacting the advisory runtime.";
 }
 
+function isAuthenticationFailure(error: unknown): boolean {
+  return error instanceof ApiError && error.status === 401;
+}
+
 function VerificationList({ checks }: { checks: VerificationCheck[] }) {
   return (
     <ul className="verification-list">
@@ -294,11 +298,11 @@ function App() {
       );
     }
 
-    if (
-      healthResult.status === "rejected" ||
-      agentResult.status === "rejected" ||
-      knowledgeResult.status === "rejected"
-    ) {
+    const telemetryFailures = [healthResult, agentResult, knowledgeResult].filter(
+      (result) =>
+        result.status === "rejected" && !isAuthenticationFailure(result.reason),
+    );
+    if (telemetryFailures.length > 0) {
       setSystemError(
         "Some runtime telemetry is unavailable. Advisory safety gates remain authoritative.",
       );
