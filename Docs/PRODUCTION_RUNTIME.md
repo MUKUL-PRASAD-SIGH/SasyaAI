@@ -1,14 +1,19 @@
 # SasyaAI Production Runtime
 
-`RUNTIME_MODE=production` is the provider-backed startup runtime. It never
-falls back to seed JSON or local runtime files. A missing or unavailable
-dependency returns a controlled `503` without delivering an advisory.
+`RUNTIME_MODE=production` is the provider-backed startup runtime. Select
+`PRODUCTION_DATA_MODE=live` for the approved AgriStack gateway, or
+`PRODUCTION_DATA_MODE=synthetic` for the authenticated local launch profile.
+Synthetic mode deliberately reads labelled seed records, persists the workflow
+through PostgreSQL/Qdrant, calls the real Gemini agents, and forces every result
+through human review; it is not a hidden fallback and cannot be auto-delivered.
+A missing or unavailable dependency returns a controlled `503` without
+delivering an advisory.
 
 ## Implemented request path
 
 ```text
 Live AgriStack consent preflight
-  -> authorised AgriStack profile refresh + PostgreSQL twin
+  -> authorised AgriStack profile refresh (or labelled synthetic profile) + PostgreSQL twin
   -> Gemini Intent Router -> typed TaskGraph
   -> required Open-Meteo / market reads + filtered Qdrant retrieval
   -> one Gemini domain specialist -> typed draft
@@ -46,7 +51,7 @@ Production startup checks these settings before the web server is created:
 - `GEMINI_API_KEY`;
 - `DATABASE_URL` pointing to PostgreSQL;
 - `QDRANT_URL` (and `QDRANT_API_KEY` where applicable);
-- AgriStack gateway URL/token;
+- AgriStack gateway URL/token when `PRODUCTION_DATA_MODE=live`;
 - approved market-provider URL/key;
 - optional `OTEL_EXPORTER_OTLP_ENDPOINT` for central trace export (the API
   exposes `/metrics` and keeps local request instrumentation when it is empty).
@@ -97,6 +102,13 @@ contract supplied to your registered organisation.
 Every advisory refreshes the authorised farmer context from this endpoint and
 persists the validated copy to PostgreSQL. `POST /api/v1/farmers/{farmer_id}/sync`
 provides the same consent-gated refresh for onboarding and operational checks.
+
+When `PRODUCTION_DATA_MODE=synthetic`, the same adapter boundary is backed by
+validated seed fixtures. The explicit catalog route is
+`GET /api/v1/synthetic/farmers`; it is disabled as soon as live mode is
+selected. The UI, provenance, and verifier identify synthetic snapshots, so a
+pilot can exercise the complete agent graph without implying that a farmer has
+granted live AgriStack consent.
 
 ## Data ownership
 

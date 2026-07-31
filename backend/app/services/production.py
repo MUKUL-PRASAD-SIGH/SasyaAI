@@ -13,6 +13,7 @@ from app.core.config import Settings
 from app.models.advisory import (
     AdvisoryResponse,
     AgentRun,
+    DemoFarmerSummary,
     HITLCase,
     HITLDecisionRequest,
     Intent,
@@ -38,8 +39,13 @@ from app.services.advisory import (
     HITLCaseSafetyBlockedError,
 )
 from app.services.agents import AgentTimer
-from app.services.connectors import LiveDataGateway, ToolDataUnavailableError
+from app.services.connectors import (
+    LiveDataGateway,
+    SyntheticProductionDataGateway,
+    ToolDataUnavailableError,
+)
 from app.services.llm import AgentPlan, LLMRequest, TaskGraph, build_llm_provider
+from app.services.memory import SeedRepository
 from app.services.persistence import PostgresMemoryStore
 from app.services.retrieval import QdrantKnowledgeStore
 
@@ -53,8 +59,23 @@ class ProductionAdvisoryService:
         self.settings = settings
         self.memory = PostgresMemoryStore(settings.database_url)
         self.retrieval = QdrantKnowledgeStore(settings)
-        self.tools = LiveDataGateway(settings)
+        self.seed_repository = (
+            SeedRepository(settings.seed_data_dir)
+            if settings.production_data_mode == "synthetic"
+            else None
+        )
+        self.tools = (
+            SyntheticProductionDataGateway(settings)
+            if settings.production_data_mode == "synthetic"
+            else LiveDataGateway(settings)
+        )
+        if self.seed_repository is not None:
+            self.retrieval.ensure_synthetic_seed(self.seed_repository)
         self.llm = build_llm_provider(settings)
+
+    @property
+    def synthetic_data_mode(self) -> bool:
+        return getattr(getattr(self, "settings", None), "production_data_mode", "live") == "synthetic"
 
     @staticmethod
     def _require_profile_shape(farmer_id: str, profile: dict[str, Any] | None) -> dict[str, Any]:
@@ -82,6 +103,7 @@ class ProductionAdvisoryService:
         if raw is None:
             raise FarmerNotFoundError(farmer_id)
         now = datetime.now(timezone.utc)
+        synthetic = self.synthetic_data_mode
         try:
             record = ConsentRecord(
                 consent_id=str(raw["consent_id"]),
@@ -93,12 +115,12 @@ class ProductionAdvisoryService:
                 expires_at=raw.get("expires_at"),
                 revoked_at=raw.get("revoked_at"),
                 provenance=SourceProvenance(
-                    provider="agristack",
-                    source_type="live_api",
+                    provider=("synthetic_production_seed" if synthetic else "agristack"),
+                    source_type=("synthetic_fixture" if synthetic else "live_api"),
                     source_record_id=str(raw.get("source_record_id", raw["consent_id"])),
                     retrieved_at=now,
                     data_as_of=raw.get("updated_at"),
-                    freshness="live",
+                    freshness=("synthetic_reference" if synthetic else "live"),
                     request_id=request_id,
                 ),
             )
@@ -227,7 +249,7 @@ class ProductionAdvisoryService:
     def _weather_is_complete(weather: dict[str, Any]) -> bool:
         data = weather.get("data", {})
         return (
-            weather.get("freshness") == "live"
+            weather.get("freshness") in {"live", "synthetic_reference"}
             and isinstance(data, dict)
             and isinstance(data.get("wind_speed_kmh"), (int, float))
             and isinstance(data.get("max_precipitation_probability"), (int, float))
@@ -272,8 +294,12 @@ class ProductionAdvisoryService:
         required_snapshots = [weather] if needs_weather else []
         if needs_market:
             required_snapshots.append(market)
+        accepted_freshness = {"live"}
+        if self.synthetic_data_mode:
+            accepted_freshness.add("synthetic_reference")
         freshness_ok = all(
-            snapshot.get("freshness") == "live" for snapshot in required_snapshots
+            snapshot.get("freshness") in accepted_freshness
+            for snapshot in required_snapshots
         )
         checks = [
             VerificationCheck(
@@ -314,6 +340,18 @@ class ProductionAdvisoryService:
                     name="scheme_eligibility",
                     status="not_applicable",
                     message="Eligibility must be confirmed by the authorised scheme system before submission.",
+                )
+            )
+        if self.synthetic_data_mode:
+            checks.append(
+                VerificationCheck(
+                    name="synthetic_data_boundary",
+                    status="fail",
+                    message=(
+                        "This production run uses labelled synthetic farmer, consent, and "
+                        "market data; it is review-only until PRODUCTION_DATA_MODE=live "
+                        "uses the approved AgriStack gateway."
+                    ),
                 )
             )
         return checks
@@ -500,7 +538,7 @@ class ProductionAdvisoryService:
         )
         agent_runs.append(
             verifier_timer.finish(
-                summary="Applied non-LLM grounding, live-weather, eligibility, and dose gates.",
+                summary="Applied non-LLM grounding, weather, eligibility, and dose gates.",
                 input_sources=["agent_draft", "live_weather", "retrieved_evidence"],
                 confidence=plan.confidence,
             )
@@ -515,7 +553,11 @@ class ProductionAdvisoryService:
             TraceEvent(
                 stage="consent_preflight",
                 status="completed",
-                detail="Verified live AgriStack consent before data access.",
+                detail=(
+                    "Verified synthetic consent fixture before data access."
+                    if self.synthetic_data_mode
+                    else "Verified live AgriStack consent before data access."
+                ),
             ),
             TraceEvent(
                 stage="intent_router",
@@ -525,7 +567,11 @@ class ProductionAdvisoryService:
             TraceEvent(
                 stage="live_tools",
                 status="completed",
-                detail="Read live AgriStack, weather, and market context.",
+                detail=(
+                    "Read labelled synthetic farmer, weather, and market context."
+                    if self.synthetic_data_mode
+                    else "Read live AgriStack, weather, and market context."
+                ),
             ),
             TraceEvent(
                 stage="memory_agent",
@@ -563,7 +609,15 @@ class ProductionAdvisoryService:
         hitl_case_id = None
         if needs_hitl:
             hitl_case_id = str(uuid4())
-            reason = "A hard safety check failed." if verification_failed else "Human review required by confidence or plan policy."
+            reason = (
+                "Synthetic production data requires review before any delivery."
+                if self.synthetic_data_mode
+                else (
+                    "A hard safety check failed."
+                    if verification_failed
+                    else "Human review required by confidence or plan policy."
+                )
+            )
             trace.append(TraceEvent(stage="human_in_the_loop", status="queued", detail=reason))
             self.memory.enqueue_hitl(
                 self._hitl_case(
@@ -665,6 +719,16 @@ class ProductionAdvisoryService:
 
     def knowledge_stats(self) -> KnowledgeStats:
         return KnowledgeStats(runtime_mode="production", **self.retrieval.stats())
+
+    def list_synthetic_farmers(self) -> list[DemoFarmerSummary]:
+        """Return labelled fixture summaries only in explicit synthetic mode."""
+
+        if self.seed_repository is None:
+            return []
+        return [
+            DemoFarmerSummary(**summary)
+            for summary in self.seed_repository.list_farmer_summaries()
+        ]
 
     def decide_hitl(self, case_id: str, request: HITLDecisionRequest) -> HITLCase | None:
         outcome = self.memory.decide_hitl(

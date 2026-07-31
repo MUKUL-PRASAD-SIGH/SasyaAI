@@ -5,6 +5,7 @@ import pytest
 from app.core.config import Settings
 from app.main import create_app
 from app.models.advisory import Intent, KnowledgeHit
+from app.services.connectors import SyntheticProductionDataGateway
 from app.services.llm import AgentPlan, GeminiProvider, LLMRequest
 from app.services.production import ProductionAdvisoryService
 from fastembed import TextEmbedding
@@ -14,6 +15,7 @@ def test_production_mode_refuses_to_start_with_missing_live_dependencies(tmp_pat
     settings = Settings(
         runtime_mode="production",
         app_environment="production",
+        production_data_mode="live",
         gemini_api_key="",
         database_url="",
         qdrant_url="",
@@ -69,6 +71,36 @@ def test_production_configuration_allows_local_metrics_when_otlp_is_unset():
     )
 
     assert settings.production_configuration_errors() == []
+
+
+def test_synthetic_production_configuration_keeps_agristack_open_for_later():
+    settings = Settings(
+        runtime_mode="production",
+        app_environment="production",
+        production_data_mode="synthetic",
+        gemini_api_key="test-key",
+        database_url="postgresql+psycopg://user:pass@localhost/db",
+        qdrant_url="http://localhost:6333",
+        market_api_base_url="https://market.example",
+        market_api_key="test-market-key",
+        auth_required=True,
+        auth_principals_json='[{"api_key":"test-principal-key-1234567890","subject":"admin","roles":["system_admin"]}]',
+    )
+
+    assert settings.production_configuration_errors() == []
+
+
+def test_synthetic_production_gateway_is_explicitly_provenanced():
+    gateway = SyntheticProductionDataGateway(Settings())
+
+    consent = gateway.agristack_consent("AGR_MH_001234", "agricultural_advisory")
+    context = gateway.agristack_farmer_context("AGR_MH_001234")
+    weather = gateway.weather(context["data"])
+
+    assert consent is not None
+    assert context["provider"] == "synthetic_production_seed"
+    assert context["freshness"] == "synthetic_reference"
+    assert weather["freshness"] == "synthetic_reference"
 
 
 def test_default_embedding_model_is_supported_by_cpu_only_fastembed():

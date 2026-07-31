@@ -45,9 +45,13 @@ Returns service health without exposing dependencies or configuration.
   "service": "SasyaAI",
   "environment": "development",
   "runtime_mode": "demo",
+  "data_source_mode": "synthetic",
   "agent_execution": "deterministic_fallback"
 }
 ```
+
+In production, `data_source_mode` is `synthetic` or `live`. Synthetic mode is
+explicitly review-only; the live mode is the AgriStack-ready contract.
 
 ## `GET /api/v1/agents`
 

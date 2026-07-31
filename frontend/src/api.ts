@@ -114,6 +114,10 @@ export function listDemoFarmers(): Promise<DemoFarmerSummary[]> {
   return request<DemoFarmerSummary[]>("/api/v1/demo/farmers");
 }
 
+export function listSyntheticProductionFarmers(): Promise<DemoFarmerSummary[]> {
+  return request<DemoFarmerSummary[]>("/api/v1/synthetic/farmers");
+}
+
 export async function listHitlCases(): Promise<HitlCase[]> {
   const payload = await request<HitlCase[] | { cases?: HitlCase[] }>("/api/v1/hitl");
 

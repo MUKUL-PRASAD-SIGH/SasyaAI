@@ -1,22 +1,24 @@
 # SasyaAI Verification and Dependency Report
 
 **Reviewed:** 31 July 2026  
-**Implementation status:** demo runtime verified; production adapter path implemented but not live-activated.
+**Implementation status:** synthetic production runtime verified locally; live AgriStack mode remains an explicit future switch.
 
 ## Executive answer
 
-SasyaAI has two deliberately separate runtimes. The checked-in default is the
-local synthetic-data `demo` runtime; it makes **no external API calls** and is
-not a production advisory service. It reads checked-in seed JSON and writes
-local runtime JSON.
+SasyaAI has a deliberately separated runtime and data-source switch. The
+checked-in default is the local synthetic-data `demo` runtime; it makes **no
+external API calls** and is not a production advisory service. It reads
+checked-in seed JSON and writes local runtime JSON. Production can run with
+`PRODUCTION_DATA_MODE=synthetic` for an authenticated, durable, review-only
+pilot, or with `PRODUCTION_DATA_MODE=live` for the AgriStack path.
 
 The `production` runtime is implemented behind explicit adapters. It uses
 separate Gemini calls for schema-constrained routing, specialist drafting, and
 reflection, PostgreSQL for durable state,
-Qdrant for filtered retrieval, and live AgriStack/weather/market gateways. It
-refuses to start without its provider configuration and authentication, so it
-cannot silently use demo data. OTLP export is optional when the deployment
-scrapes `/metrics`. No live credentials or
+Qdrant for filtered retrieval, and either labelled synthetic adapters or live
+weather/market/AgriStack gateways. It refuses to start without its provider
+configuration and authentication, so it cannot silently use the wrong data
+source. OTLP export is optional when the deployment scrapes `/metrics`. No live credentials or
 source contracts are present in this checkout, therefore production has not
 been integration-tested against external providers.
 
@@ -28,10 +30,10 @@ or embedded credentials.
 
 | Check | Result | Evidence |
 |---|---|---|
-| Backend tests | Pass | `python -m pytest -q` — **38 passed** |
+| Backend tests | Pass | `python -m pytest -q` — **40 passed** |
 | Backend lint | Pass | `python -m ruff check backend tests scripts` — all checks passed |
 | Frontend component tests | Pass | `npm test` — 3 review-safety tests passed |
-| Browser end-to-end tests | Pass | `npm run test:e2e` — 3 Chromium journeys cover corpus/theme, agent telemetry, and hard-safety behavior |
+| Browser end-to-end tests | Assertions pass; Windows runner cleanup flaky | 3 Chromium journeys reached their passing assertions; the local Playwright web-server process did not exit cleanly after completion on this host |
 | Frontend typecheck and production build | Pass | `npm run build` — TypeScript and Vite build succeeded |
 | Frontend dependency audit | Pass | `npm audit` — 0 vulnerabilities after Vite 8 upgrade |
 | Compose and images | Pass | Compose config validated; API (695 MB) and Nginx UI (48.4 MB) images built and returned HTTP 200 in isolated smoke tests |
@@ -45,7 +47,8 @@ Not performed in this verification pass:
 - A formal secret-scanning or penetration-testing run.
 - Full penetration, load, backup/restore, and disaster-recovery exercises.
 - Manual interactive-browser visual inspection. The browser-control surface was
-  unavailable; component tests, Chromium E2E, and production image checks passed.
+  unavailable; component tests, Chromium assertions, HTTP smoke checks, and
+  production image checks passed.
 
 ## External APIs and network use
 
@@ -73,7 +76,7 @@ The repository contains placeholders for future integration work:
 | `DATABASE_URL` | Required PostgreSQL system of record for production profiles, episodes, HITL cases, deletion receipts, and audit events |
 | `QDRANT_URL`, `QDRANT_API_KEY` and `qdrant-client` | Required in production for state-filtered semantic retrieval and farmer-scoped vector memory |
 | `fastembed==0.8.0` | CPU-only multilingual ONNX embeddings; the 384-dimension model is preloaded into the API image |
-| AgriStack and market gateway settings | Required in production; no source credential or contract is committed |
+| AgriStack and market gateway settings | AgriStack is required only in `PRODUCTION_DATA_MODE=live`; synthetic mode is explicit and review-only |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | Optional central OTLP trace export; `/metrics` and local instrumentation remain enabled when empty |
 | `LYZR_API_KEY`, `LYZR_WORKFLOW_ID`, `LYZR_BASE_URL` | Optional future orchestration configuration; no running code invokes Lyzr |
 
@@ -88,7 +91,7 @@ repeatable synthetic demo, but must be replaced or governed before production.
 
 | Category | Examples | Status |
 |---|---|---|
-| Synthetic farmer and knowledge data | 18 non-real profiles and 105 crop/pest/scheme references in `data/seed/` | Generated evaluation-only fixtures; knowledge records use `review_status=synthetic_reference` |
+| Synthetic farmer and knowledge data | 18 non-real profiles and 105 crop/pest/scheme references in `data/seed/` | Available in demo and explicit synthetic production mode; every record remains labelled `synthetic_reference` |
 | Safety rules | Water/budget checks and seeded pest protocol dose limits | Intentional deterministic controls; require agricultural-domain governance for production |
 | Thresholds and local defaults | HITL threshold `0.70`, local CORS origins, default local API URL/ports | Configurable through environment values where applicable; local defaults are intentional |
 | Dashboard scenarios | Demo questions and doses in `frontend/src/data.ts` | Intentional UX fixtures |

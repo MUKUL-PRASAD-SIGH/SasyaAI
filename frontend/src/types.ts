@@ -65,6 +65,7 @@ export interface RuntimeHealth {
   service: string;
   environment: string;
   runtime_mode: "demo" | "production";
+  data_source_mode: "live" | "synthetic";
   agent_execution: string;
 }
 

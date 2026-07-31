@@ -2,11 +2,15 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
 from uuid import NAMESPACE_URL, uuid4, uuid5
 
 from app.core.config import Settings
 from app.models.advisory import KnowledgeHit
 from app.services.resilience import CircuitBreaker, ProviderUnavailableError, retry_provider_call
+
+if TYPE_CHECKING:
+    from app.services.memory import SeedRepository
 
 
 class RetrievalUnavailableError(ProviderUnavailableError):
@@ -172,6 +176,46 @@ class QdrantKnowledgeStore:
         except ProviderUnavailableError as error:
             raise RetrievalUnavailableError("Qdrant knowledge ingest failed.") from error
         return identifier
+
+    def ensure_synthetic_seed(self, repository: SeedRepository) -> None:
+        """Idempotently mirror labelled fixtures into Qdrant for synthetic production.
+
+        The document IDs are stable, so restarting the synthetic production
+        stack updates the same points instead of creating duplicate evidence.
+        This method is never called by the live AgriStack runtime.
+        """
+
+        mappings = {
+            "crops": "crop_kb",
+            "pests": "pest_kb",
+            "schemes": "scheme_kb",
+        }
+        for source_collection, qdrant_collection in mappings.items():
+            for index, record in enumerate(repository.list_knowledge(source_collection), start=1):
+                title = str(record.get("title", record.get("name", f"Synthetic {source_collection}")))
+                guidance = str(record.get("guidance", ""))
+                state = str(record.get("state", record.get("region", "all")))
+                content = f"{title}\n{guidance}".strip()
+                metadata: dict[str, str | int | float | bool | list[str]] = {
+                    "state": state,
+                    "region": str(record.get("region", state)),
+                    "source_name": str(record.get("source_name", "SasyaAI synthetic reference")),
+                    "source_url": str(record.get("source_url", "https://synthetic.sasyaai.local/reference")),
+                    "source_updated_at": str(record.get("source_updated_at", "2026-07-01")),
+                    "review_status": "synthetic_reference",
+                    "synthetic_data": True,
+                }
+                for key in ("crop", "name", "water_need_mm", "estimated_input_cost_inr"):
+                    value = record.get(key)
+                    if isinstance(value, (str, int, float, bool)):
+                        metadata[key] = value
+                self.upsert_document(
+                    qdrant_collection,
+                    document_id=f"synthetic-{source_collection}-{index:04d}",
+                    title=title,
+                    content=content,
+                    metadata=metadata,
+                )
 
     def append_episode(self, episode: dict[str, object]) -> str:
         """Index a durable advisory episode under a mandatory farmer filter."""

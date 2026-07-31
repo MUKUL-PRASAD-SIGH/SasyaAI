@@ -8,5 +8,6 @@ import os
 # Settings instances where they need to exercise startup gates.
 os.environ.setdefault("APP_ENVIRONMENT", "development")
 os.environ.setdefault("RUNTIME_MODE", "demo")
+os.environ.setdefault("PRODUCTION_DATA_MODE", "live")
 os.environ.setdefault("AUTH_REQUIRED", "false")
 os.environ.setdefault("AUTH_PRINCIPALS_JSON", "")

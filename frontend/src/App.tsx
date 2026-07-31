@@ -8,6 +8,7 @@ import {
   getRuntimeHealth,
   listAgents,
   listDemoFarmers,
+  listSyntheticProductionFarmers,
   listHitlCases,
   submitHitlDecision,
   submitQuery,
@@ -255,12 +256,13 @@ function App() {
   }
 
   async function refreshSystemContext() {
-    const [healthResult, agentResult, knowledgeResult, farmerResult] =
+    const [healthResult, agentResult, knowledgeResult, farmerResult, syntheticFarmerResult] =
       await Promise.allSettled([
         getRuntimeHealth(),
         listAgents(),
         getKnowledgeStats(),
         listDemoFarmers(),
+        listSyntheticProductionFarmers(),
       ]);
 
     if (healthResult.status === "fulfilled") {
@@ -272,9 +274,11 @@ function App() {
     if (knowledgeResult.status === "fulfilled") {
       setKnowledge(knowledgeResult.value);
     }
-    if (farmerResult.status === "fulfilled" && farmerResult.value.length > 0) {
+    const availableFarmerResult =
+      syntheticFarmerResult.status === "fulfilled" ? syntheticFarmerResult : farmerResult;
+    if (availableFarmerResult.status === "fulfilled" && availableFarmerResult.value.length > 0) {
       setFarmers(
-        farmerResult.value.map((farmer) => ({
+        availableFarmerResult.value.map((farmer) => ({
           id: farmer.farmer_id,
           name: farmer.name,
           state: farmer.state,
@@ -507,6 +511,13 @@ function App() {
           </div>
         </dl>
       </section>
+
+      {runtime?.runtime_mode === "production" && runtime.data_source_mode === "synthetic" && (
+        <p className="synthetic-notice" role="status">
+          Synthetic production mode: farmer, consent, market, and knowledge records are labelled
+          fixtures. Every result remains review-only until the approved AgriStack gateway is enabled.
+        </p>
+      )}
 
       {systemError && <p className="system-notice" role="status">{systemError}</p>}
 

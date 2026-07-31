@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     app_name: str = "SasyaAI"
     app_environment: str = "development"
     runtime_mode: Literal["demo", "production"] = "demo"
+    production_data_mode: Literal["live", "synthetic"] = "live"
     api_host: str = "0.0.0.0"
     api_port: int = 8000
     cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
@@ -86,11 +87,16 @@ class Settings(BaseSettings):
             "GEMINI_API_KEY": self.gemini_api_key,
             "DATABASE_URL": self.database_url,
             "QDRANT_URL": self.qdrant_url,
-            "AGRISTACK_API_BASE_URL": self.agristack_api_base_url,
-            "AGRISTACK_ACCESS_TOKEN": self.agristack_access_token,
-            "MARKET_API_BASE_URL": self.market_api_base_url,
-            "MARKET_API_KEY": self.market_api_key,
         }
+        if self.production_data_mode == "live":
+            required.update(
+                {
+                    "AGRISTACK_API_BASE_URL": self.agristack_api_base_url,
+                    "AGRISTACK_ACCESS_TOKEN": self.agristack_access_token,
+                    "MARKET_API_BASE_URL": self.market_api_base_url,
+                    "MARKET_API_KEY": self.market_api_key,
+                }
+            )
         errors = [name for name, value in required.items() if not value.strip()]
         if not self.auth_required:
             errors.append("AUTH_REQUIRED=true")

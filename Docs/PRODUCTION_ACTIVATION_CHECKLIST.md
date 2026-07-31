@@ -17,6 +17,10 @@ is evidenced and signed off.
 - Typed production Gemini router/specialist/reflection calls, PostgreSQL and
   Qdrant adapters, FastEmbed ONNX retrieval, live connector boundaries, and
   OpenTelemetry/Prometheus configuration.
+- Explicit `PRODUCTION_DATA_MODE=synthetic` production profile for authenticated
+  pilots: seed-backed consent/profile/market adapters, Qdrant seeding, visible
+  provenance, and a hard review-only boundary. `PRODUCTION_DATA_MODE=live`
+  remains the AgriStack activation switch.
 
 These are foundations only. Local API keys, local JSON logs, and in-process
 rate limits are not sufficient production controls.

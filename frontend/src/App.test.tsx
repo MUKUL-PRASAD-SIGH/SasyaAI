@@ -10,6 +10,7 @@ const apiMocks = vi.hoisted(() => ({
   getRuntimeHealth: vi.fn(),
   listAgents: vi.fn(),
   listDemoFarmers: vi.fn(),
+  listSyntheticProductionFarmers: vi.fn(),
   listHitlCases: vi.fn(),
   submitHitlDecision: vi.fn(),
   submitQuery: vi.fn(),
@@ -23,6 +24,7 @@ vi.mock("./api", () => ({
   getRuntimeHealth: apiMocks.getRuntimeHealth,
   listAgents: apiMocks.listAgents,
   listDemoFarmers: apiMocks.listDemoFarmers,
+  listSyntheticProductionFarmers: apiMocks.listSyntheticProductionFarmers,
   listHitlCases: apiMocks.listHitlCases,
   submitHitlDecision: apiMocks.submitHitlDecision,
   submitQuery: apiMocks.submitQuery,
@@ -64,6 +66,7 @@ function mockRuntimeContext() {
     service: "SasyaAI",
     environment: "test",
     runtime_mode: "demo",
+    data_source_mode: "live",
     agent_execution: "deterministic_fallback",
   });
   apiMocks.listAgents.mockResolvedValue([]);
@@ -75,6 +78,7 @@ function mockRuntimeContext() {
     crops: 20,
   });
   apiMocks.listDemoFarmers.mockResolvedValue([]);
+  apiMocks.listSyntheticProductionFarmers.mockResolvedValue([]);
 }
 
 describe("extension-officer review safety", () => {

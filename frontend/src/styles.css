@@ -275,6 +275,16 @@ summary:focus-visible {
   font-size: 0.8rem;
 }
 
+.synthetic-notice {
+  margin: 1rem 0 0;
+  padding: 0.85rem 1rem;
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
+  border-radius: 0.85rem;
+  background: color-mix(in srgb, var(--accent) 12%, var(--panel));
+  color: var(--text);
+  font-size: 0.9rem;
+}
+
 .access-form {
   display: grid;
   grid-template-columns: minmax(260px, 1fr) minmax(240px, 0.75fr) auto;

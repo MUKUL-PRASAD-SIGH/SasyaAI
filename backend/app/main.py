@@ -203,6 +203,7 @@ def create_app(runtime_dir: Path | None = None, settings: Settings | None = None
             "service": settings.app_name,
             "environment": settings.app_environment,
             "runtime_mode": settings.runtime_mode,
+            "data_source_mode": settings.production_data_mode,
             "agent_execution": (
                 "gemini_multi_agent"
                 if settings.runtime_mode == "production"
@@ -243,6 +244,23 @@ def create_app(runtime_dir: Path | None = None, settings: Settings | None = None
                 detail="Synthetic farmer enumeration is disabled in production.",
             )
         return service().list_demo_farmers()
+
+    @app.get(
+        "/api/v1/synthetic/farmers",
+        response_model=list[DemoFarmerSummary],
+        tags=["farmers"],
+    )
+    def list_synthetic_production_farmers(
+        _: Principal = Depends(
+            require_roles(Role.FARMER, Role.EXTENSION_OFFICER, Role.SYSTEM_ADMIN)
+        ),
+    ) -> list[DemoFarmerSummary]:
+        if settings.runtime_mode != "production" or settings.production_data_mode != "synthetic":
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="The labelled synthetic production catalog is disabled in live mode.",
+            )
+        return service().list_synthetic_farmers()
 
     @app.post("/api/v1/query", response_model=AdvisoryResponse, tags=["advisory"])
     def submit_query(

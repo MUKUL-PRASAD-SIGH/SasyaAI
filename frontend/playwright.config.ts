@@ -16,6 +16,13 @@ export default defineConfig({
       command: "python -m uvicorn app.main:app --app-dir backend --host 127.0.0.1 --port 8000",
       cwd: "..",
       url: "http://127.0.0.1:8000/health",
+      env: {
+        ...process.env,
+        APP_ENVIRONMENT: "development",
+        RUNTIME_MODE: "demo",
+        AUTH_REQUIRED: "false",
+        PRODUCTION_DATA_MODE: "live",
+      },
       reuseExistingServer: !process.env.CI,
     },
     {
