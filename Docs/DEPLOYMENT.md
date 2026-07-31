@@ -33,9 +33,12 @@ or live providers for advisory work. It is an evaluation runtime over
 synthetic data.
 
 `RUNTIME_MODE=production` refuses startup unless live credentials,
-authentication, durable stores, and OTLP tracing are configured. It does not
-fall back to demo records. Follow [Production Runtime](PRODUCTION_RUNTIME.md)
-and the [Production Activation Checklist](PRODUCTION_ACTIVATION_CHECKLIST.md).
+authentication, durable stores, AgriStack consent/profile access, and the
+approved market connector are configured. OTLP export is optional: without an
+`OTEL_EXPORTER_OTLP_ENDPOINT`, the API still instruments requests and exposes
+local Prometheus metrics at `/metrics`. It does not fall back to demo records.
+Follow [Production Runtime](PRODUCTION_RUNTIME.md) and the
+[Production Activation Checklist](PRODUCTION_ACTIVATION_CHECKLIST.md).
 
 ## Images
 

@@ -48,7 +48,8 @@ Production startup checks these settings before the web server is created:
 - `QDRANT_URL` (and `QDRANT_API_KEY` where applicable);
 - AgriStack gateway URL/token;
 - approved market-provider URL/key;
-- an OTLP tracing endpoint.
+- optional `OTEL_EXPORTER_OTLP_ENDPOINT` for central trace export (the API
+  exposes `/metrics` and keeps local request instrumentation when it is empty).
 
 Copy `.env.example` only for local configuration. In staging and production,
 put the values in a secret manager or workload identity system. Do not expose

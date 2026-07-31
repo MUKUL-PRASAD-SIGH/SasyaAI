@@ -25,6 +25,12 @@ manager. It is a JSON array of API-key records with `subject`, `roles`, and
 `allowed_farmer_ids`; never commit it or compile a key into the dashboard.
 The internal operations UI accepts a role-scoped key into memory only and
 clears it on reload.
+
+Example shape (use a generated secret-manager value, never this literal key):
+
+```json
+[{"api_key":"replace-with-a-32-byte-secret","subject":"ops-admin","roles":["system_admin"],"allowed_farmer_ids":null}]
+```
 The allowed roles are `farmer`, `extension_officer`, and `system_admin` for
 the currently implemented protected endpoints. Replace this adapter with an
 approved OIDC/JWT gateway before production.

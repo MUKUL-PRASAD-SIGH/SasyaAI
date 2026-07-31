@@ -60,8 +60,9 @@ class Settings(BaseSettings):
     tool_timeout_seconds: float = 8.0
     tool_max_retries: int = 2
 
-    # Observability is optional in demo mode but required by the deployment
-    # checklist before serving real farmers.
+    # OTLP export is optional when the deployment exposes the local Prometheus
+    # scrape endpoint through a collector or sidecar. The application still
+    # instruments production requests when this value is empty.
     otel_exporter_otlp_endpoint: str = ""
     service_version: str = "0.2.0"
 
@@ -89,11 +90,12 @@ class Settings(BaseSettings):
             "AGRISTACK_ACCESS_TOKEN": self.agristack_access_token,
             "MARKET_API_BASE_URL": self.market_api_base_url,
             "MARKET_API_KEY": self.market_api_key,
-            "OTEL_EXPORTER_OTLP_ENDPOINT": self.otel_exporter_otlp_endpoint,
         }
         errors = [name for name, value in required.items() if not value.strip()]
         if not self.auth_required:
             errors.append("AUTH_REQUIRED=true")
+        elif not self.auth_principals_json.strip():
+            errors.append("AUTH_PRINCIPALS_JSON")
         return errors
 
 

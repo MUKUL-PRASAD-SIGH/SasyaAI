@@ -23,11 +23,9 @@ def configure_observability(app, settings: Settings) -> None:
         return
     try:
         from opentelemetry import trace
-        from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
         from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
         from opentelemetry.sdk.resources import Resource
         from opentelemetry.sdk.trace import TracerProvider
-        from opentelemetry.sdk.trace.export import BatchSpanProcessor
         from prometheus_client import make_asgi_app
     except ImportError as error:  # pragma: no cover - executed in production installation only
         raise ObservabilityConfigurationError(
@@ -43,9 +41,19 @@ def configure_observability(app, settings: Settings) -> None:
             }
         )
         provider = TracerProvider(resource=resource)
-        provider.add_span_processor(
-            BatchSpanProcessor(OTLPSpanExporter(endpoint=settings.otel_exporter_otlp_endpoint))
-        )
+        if settings.otel_exporter_otlp_endpoint.strip():
+            from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+            from opentelemetry.sdk.trace.export import BatchSpanProcessor
+
+            provider.add_span_processor(
+                BatchSpanProcessor(
+                    OTLPSpanExporter(endpoint=settings.otel_exporter_otlp_endpoint)
+                )
+            )
+        else:
+            logging.getLogger(__name__).warning(
+                "OTEL_EXPORTER_OTLP_ENDPOINT is empty; production traces remain local and /metrics is enabled."
+            )
         trace.set_tracer_provider(provider)
         FastAPIInstrumentor.instrument_app(app)
         app.mount("/metrics", make_asgi_app())

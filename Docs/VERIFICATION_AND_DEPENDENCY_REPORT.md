@@ -14,8 +14,9 @@ The `production` runtime is implemented behind explicit adapters. It uses
 separate Gemini calls for schema-constrained routing, specialist drafting, and
 reflection, PostgreSQL for durable state,
 Qdrant for filtered retrieval, and live AgriStack/weather/market gateways. It
-refuses to start without its provider configuration, authentication, and
-telemetry endpoint, so it cannot silently use demo data. No live credentials or
+refuses to start without its provider configuration and authentication, so it
+cannot silently use demo data. OTLP export is optional when the deployment
+scrapes `/metrics`. No live credentials or
 source contracts are present in this checkout, therefore production has not
 been integration-tested against external providers.
 
@@ -27,7 +28,7 @@ or embedded credentials.
 
 | Check | Result | Evidence |
 |---|---|---|
-| Backend tests | Pass | `python -m pytest -q` — **36 passed** |
+| Backend tests | Pass | `python -m pytest -q` — **38 passed** |
 | Backend lint | Pass | `python -m ruff check backend tests scripts` — all checks passed |
 | Frontend component tests | Pass | `npm test` — 3 review-safety tests passed |
 | Browser end-to-end tests | Pass | `npm run test:e2e` — 3 Chromium journeys cover corpus/theme, agent telemetry, and hard-safety behavior |
@@ -73,7 +74,7 @@ The repository contains placeholders for future integration work:
 | `QDRANT_URL`, `QDRANT_API_KEY` and `qdrant-client` | Required in production for state-filtered semantic retrieval and farmer-scoped vector memory |
 | `fastembed==0.8.0` | CPU-only multilingual ONNX embeddings; the 384-dimension model is preloaded into the API image |
 | AgriStack and market gateway settings | Required in production; no source credential or contract is committed |
-| `OTEL_EXPORTER_OTLP_ENDPOINT` | Required in production; enables OpenTelemetry and `/metrics` instrumentation |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | Optional central OTLP trace export; `/metrics` and local instrumentation remain enabled when empty |
 | `LYZR_API_KEY`, `LYZR_WORKFLOW_ID`, `LYZR_BASE_URL` | Optional future orchestration configuration; no running code invokes Lyzr |
 
 Installing Python/Node dependencies or pulling Docker images can naturally use

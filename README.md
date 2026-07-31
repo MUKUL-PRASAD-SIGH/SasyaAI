@@ -5,7 +5,7 @@ SasyaAI is a safety-gated agricultural-advisory platform for Indian farmers. It 
 This repository has two explicitly separated runtimes:
 
 - `RUNTIME_MODE=demo` is a credential-free local workflow over synthetic seed data. It exists for contract development and must not be presented as a live advisory service.
-- `RUNTIME_MODE=production` is the startup path: Gemini plans and drafts grounded advice, PostgreSQL owns farmer/HITL/audit state, Qdrant retrieves governed knowledge, and live AgriStack, weather, and market adapters supply source-attributed context. It refuses to boot until its credentials, durable stores, authentication, and telemetry endpoint are configured.
+- `RUNTIME_MODE=production` is the startup path: Gemini plans and drafts grounded advice, PostgreSQL owns farmer/HITL/audit state, Qdrant retrieves governed knowledge, and live AgriStack, weather, and market adapters supply source-attributed context. It refuses to boot until its credentials, durable stores, authentication, and live-provider contracts are configured; OTLP export is optional because `/metrics` remains available locally.
 
 ## What works today
 

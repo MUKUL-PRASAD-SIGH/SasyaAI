@@ -11,7 +11,19 @@ from fastembed import TextEmbedding
 
 
 def test_production_mode_refuses_to_start_with_missing_live_dependencies(tmp_path):
-    settings = Settings(runtime_mode="production", app_environment="production")
+    settings = Settings(
+        runtime_mode="production",
+        app_environment="production",
+        gemini_api_key="",
+        database_url="",
+        qdrant_url="",
+        agristack_api_base_url="",
+        agristack_access_token="",
+        market_api_base_url="",
+        market_api_key="",
+        auth_required=False,
+        auth_principals_json="",
+    )
 
     with pytest.raises(RuntimeError, match="GEMINI_API_KEY") as error:
         create_app(runtime_dir=tmp_path, settings=settings)
@@ -20,7 +32,43 @@ def test_production_mode_refuses_to_start_with_missing_live_dependencies(tmp_pat
     assert "DATABASE_URL" in message
     assert "AUTH_REQUIRED=true" in message
     assert "MARKET_API_KEY" in message
-    assert "OTEL_EXPORTER_OTLP_ENDPOINT" in message
+    assert "AGRISTACK_API_BASE_URL" in message
+
+
+def test_production_configuration_requires_auth_principals_when_protected():
+    settings = Settings(
+        runtime_mode="production",
+        app_environment="production",
+        gemini_api_key="test-key",
+        database_url="postgresql+psycopg://user:pass@localhost/db",
+        qdrant_url="http://localhost:6333",
+        agristack_api_base_url="https://gateway.example",
+        agristack_access_token="test-token",
+        market_api_base_url="https://market.example",
+        market_api_key="test-market-key",
+        auth_required=True,
+        auth_principals_json="",
+    )
+
+    assert settings.production_configuration_errors() == ["AUTH_PRINCIPALS_JSON"]
+
+
+def test_production_configuration_allows_local_metrics_when_otlp_is_unset():
+    settings = Settings(
+        runtime_mode="production",
+        app_environment="production",
+        gemini_api_key="test-key",
+        database_url="postgresql+psycopg://user:pass@localhost/db",
+        qdrant_url="http://localhost:6333",
+        agristack_api_base_url="https://gateway.example",
+        agristack_access_token="test-token",
+        market_api_base_url="https://market.example",
+        market_api_key="test-market-key",
+        auth_required=True,
+        auth_principals_json='[{"api_key":"test-principal-key-1234567890","subject":"admin","roles":["system_admin"]}]',
+    )
+
+    assert settings.production_configuration_errors() == []
 
 
 def test_default_embedding_model_is_supported_by_cpu_only_fastembed():
