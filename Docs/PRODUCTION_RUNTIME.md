@@ -32,13 +32,15 @@ automatic delivery.
 
 ## Initial LLM choice
 
-The first adapter is the Gemini Developer API (`gemini-2.5-flash` by default).
-It is a sensible development launch choice for Hindi/Marathi support, low
-latency, and structured JSON output, and Google provides a limited free tier
-for experimentation. Free quota is not a production capacity plan: establish a
-budget, quota alerts, and a paid account before onboarding farmers. The
-provider interface in `backend/app/services/llm.py` makes a Vertex, OpenAI, or
-self-hosted replacement a contained change.
+The first adapter is the Gemini Developer API (`gemini-flash-latest` by
+default). The stable alias avoids silently selecting a model that the current
+Google project cannot access while retaining Hindi/Marathi support, low
+latency, and structured JSON output. Deployments may pin a dated model through
+`GEMINI_MODEL` after validating access and quota. Free quota is not a
+production capacity plan: establish a budget, quota alerts, and a paid account
+before onboarding farmers. The provider interface in
+`backend/app/services/llm.py` makes a Vertex, OpenAI, or self-hosted
+replacement a contained change.
 
 Production makes separate schema-constrained calls for routing, specialist
 drafting, and reflection. Demo mode labels its deterministic implementation as
