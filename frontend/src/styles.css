@@ -326,6 +326,98 @@ summary:focus-visible {
   grid-column: 1 / -1;
 }
 
+.section-tabs {
+  display: flex;
+  gap: 8px;
+  margin-top: 24px;
+  padding: 6px;
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface);
+  box-shadow: 0 9px 22px rgba(31, 70, 51, 0.04);
+  scrollbar-width: thin;
+}
+
+.section-tab {
+  display: grid;
+  min-width: 190px;
+  grid-template-columns: 30px 1fr;
+  grid-template-rows: auto auto;
+  gap: 2px 9px;
+  align-items: center;
+  padding: 11px 14px;
+  border: 1px solid transparent;
+  border-radius: 11px;
+  background: transparent;
+  color: var(--ink-muted);
+  text-align: left;
+  transition: border-color 150ms ease, background 150ms ease, color 150ms ease;
+}
+
+.section-tab > span {
+  display: grid;
+  width: 27px;
+  height: 27px;
+  grid-row: 1 / span 2;
+  place-items: center;
+  border-radius: 8px;
+  background: var(--surface-soft);
+  color: var(--brand);
+  font-size: 0.64rem;
+  font-weight: 900;
+}
+
+.section-tab strong {
+  color: var(--ink);
+  font-size: 0.8rem;
+  line-height: 1.2;
+}
+
+.section-tab small {
+  overflow: hidden;
+  color: var(--ink-muted);
+  font-size: 0.68rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.section-tab:hover {
+  border-color: #bfd3bd;
+  background: var(--surface-soft);
+}
+
+.section-tab.is-active {
+  border-color: #8fb595;
+  background: #edf6e9;
+  color: var(--brand-deep);
+}
+
+.section-tab.is-active > span {
+  background: var(--brand-deep);
+  color: #eff7e8;
+}
+
+.workspace-agents {
+  display: none;
+}
+
+.workspace-advisory {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.workspace-advisory .review-column {
+  display: none;
+}
+
+.workspace-review {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.workspace-review .query-column {
+  display: none;
+}
+
 .operations-strip {
   display: grid;
   grid-template-columns: minmax(250px, 0.7fr) minmax(420px, 1.25fr) minmax(220px, 0.55fr);
@@ -1226,10 +1318,21 @@ textarea {
 
 :root[data-theme="night"] .panel,
 :root[data-theme="night"] .empty-state,
-:root[data-theme="night"] .operations-strip {
+:root[data-theme="night"] .operations-strip,
+:root[data-theme="night"] .section-tabs {
   border-color: var(--line);
   background: var(--surface);
   box-shadow: 0 12px 28px rgba(0, 0, 0, 0.18);
+}
+
+:root[data-theme="night"] .section-tab.is-active {
+  border-color: #52775f;
+  background: #284739;
+}
+
+:root[data-theme="night"] .section-tab:hover {
+  border-color: var(--line);
+  background: var(--surface-soft);
 }
 
 :root[data-theme="night"] .result-card {

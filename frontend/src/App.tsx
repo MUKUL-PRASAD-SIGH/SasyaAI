@@ -51,6 +51,8 @@ type ReviewForm = {
   editedRecommendation: string;
 };
 
+type WorkspaceTab = "advisory" | "agents" | "review";
+
 const initialScenario = queryScenarios[0];
 
 const initialQueryForm: QueryForm = {
@@ -213,6 +215,7 @@ function App() {
   const [reviewForm, setReviewForm] = useState<ReviewForm>(initialReviewForm);
   const [reviewError, setReviewError] = useState<string | null>(null);
   const [isDeciding, setIsDeciding] = useState(false);
+  const [activeTab, setActiveTab] = useState<WorkspaceTab>("advisory");
 
   const selectedFarmer = useMemo(
     () => farmers.find((farmer) => farmer.id === queryForm.farmerId),
@@ -547,7 +550,47 @@ function App() {
         </form>
       )}
 
-      <section className="operations-strip" aria-labelledby="operations-heading">
+      <nav className="section-tabs" aria-label="Workspace sections" role="tablist">
+        <button
+          className={`section-tab ${activeTab === "advisory" ? "is-active" : ""}`}
+          type="button"
+          role="tab"
+          aria-selected={activeTab === "advisory"}
+          onClick={() => setActiveTab("advisory")}
+        >
+          <span>01</span>
+          <strong>Advisory desk</strong>
+          <small>Run and inspect</small>
+        </button>
+        <button
+          className={`section-tab ${activeTab === "agents" ? "is-active" : ""}`}
+          type="button"
+          role="tab"
+          aria-selected={activeTab === "agents"}
+          onClick={() => setActiveTab("agents")}
+        >
+          <span>02</span>
+          <strong>Agent operations</strong>
+          <small>Runtime topology</small>
+        </button>
+        <button
+          className={`section-tab ${activeTab === "review" ? "is-active" : ""}`}
+          type="button"
+          role="tab"
+          aria-selected={activeTab === "review"}
+          onClick={() => setActiveTab("review")}
+        >
+          <span>03</span>
+          <strong>Review queue</strong>
+          <small>{cases.length > 0 ? `${cases.length} case${cases.length === 1 ? "" : "s"}` : "Human authority"}</small>
+        </button>
+      </nav>
+
+      <section
+        className="operations-strip"
+        aria-labelledby="operations-heading"
+        hidden={activeTab !== "agents"}
+      >
         <div className="operations-copy">
           <p className="eyebrow">Runtime topology</p>
           <h2 id="operations-heading">Specialists work; the verifier controls delivery.</h2>
@@ -601,7 +644,7 @@ function App() {
         </dl>
       </section>
 
-      <div className="workspace-grid">
+      <div className={`workspace-grid workspace-${activeTab}`}>
         <section className="query-column" aria-labelledby="advisory-heading">
           <form className="panel query-panel" onSubmit={handleQuery}>
             <div className="panel-heading">
@@ -758,7 +801,10 @@ function App() {
                         <button
                           type="button"
                           className="text-button"
-                          onClick={() => setActiveCaseId(response.hitl_case_id)}
+                          onClick={() => {
+                            setActiveCaseId(response.hitl_case_id);
+                            setActiveTab("review");
+                          }}
                         >
                           Open review case
                         </button>
