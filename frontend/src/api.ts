@@ -223,17 +223,15 @@ export function registerFarmer(payload: OnboardingPayload): Promise<{
   });
 }
 
-export function googleDemoLogin(payload: {
-  email: string;
-  name?: string;
-  state?: string;
-  district?: string;
-}): Promise<LoginResult> {
+export function googleLogin(payload: { email: string }): Promise<LoginResult> {
   return request<LoginResult>("/api/v1/auth/google/demo", {
     method: "POST",
     body: JSON.stringify(payload),
   });
 }
+
+/** @deprecated Prefer googleLogin — kept for older imports. */
+export const googleDemoLogin = googleLogin;
 
 export function uploadFarmerImage(farmerId: string, file: File): Promise<Record<string, unknown>> {
   const body = new FormData();

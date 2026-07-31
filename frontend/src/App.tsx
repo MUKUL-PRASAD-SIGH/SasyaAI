@@ -6,7 +6,7 @@ import {
   fetchAuthMe,
   getKnowledgeStats,
   getRuntimeHealth,
-  googleDemoLogin,
+  googleLogin,
   listAgents,
   listAuditEvents,
   listDemoFarmers,
@@ -294,7 +294,6 @@ function App() {
   const [otpHint, setOtpHint] = useState<string | null>(null);
   const [otpSent, setOtpSent] = useState(false);
   const [showAdvancedAuth, setShowAdvancedAuth] = useState(false);
-  const [googleNameInput, setGoogleNameInput] = useState("");
   const [isAuthenticating, setIsAuthenticating] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
   const [showOnboarding, setShowOnboarding] = useState(false);
@@ -731,22 +730,17 @@ function App() {
     }
   }
 
-  async function handleGoogleDemo() {
+  async function handleGoogleLogin() {
     setLoginError(null);
     if (!emailInput.trim()) {
-      setLoginError("Enter the Google account email to continue with the demo path.");
+      setLoginError("Enter your Gmail address to continue with Google.");
       return;
     }
     setIsAuthenticating(true);
     try {
-      const result = await googleDemoLogin({
-        email: emailInput.trim(),
-        name: googleNameInput.trim() || emailInput.trim().split("@")[0] || "Google Demo Farmer",
-        state: onboarding.state,
-        district: onboarding.district,
-      });
+      const result = await googleLogin({ email: emailInput.trim() });
       if (!result.access_token) {
-        setLoginError(result.message || "Google demo login did not return a session token.");
+        setLoginError(result.message || "Google sign-in did not return a session token.");
         return;
       }
       completeLogin(result);
@@ -968,8 +962,8 @@ function App() {
                 <p className="eyebrow">Account login</p>
                 <h1 id="login-heading">Sign in</h1>
                 <p className="login-lead">
-                  Farmers sign in with Email OTP or Continue with Google (demo). Reviewers can open
-                  Advanced for an API key. The desk stays locked until a session is issued.
+                  Farmers sign in with Email OTP or Continue with Google using a registered Gmail.
+                  New farmers must register first. Reviewers can open Advanced for an API key.
                 </p>
 
                 <div className="role-card-grid" role="radiogroup" aria-label="Login role">
@@ -1017,22 +1011,11 @@ function App() {
                       required={authMethod === "email_otp"}
                       placeholder={
                         loginRole === "farmer"
-                          ? "you@farm.example"
+                          ? "you@gmail.com"
                           : "asha.patil@demo.sasyaai.local"
                       }
                     />
                   </label>
-
-                  {loginRole === "farmer" && (
-                    <label>
-                      Display name for Google demo
-                      <input
-                        value={googleNameInput}
-                        onChange={(event) => setGoogleNameInput(event.target.value)}
-                        placeholder="Optional — used only for Continue with Google"
-                      />
-                    </label>
-                  )}
 
                   <div className="otp-row">
                     <label>
@@ -1063,18 +1046,18 @@ function App() {
                   </div>
                   {otpHint && (
                     <p className="form-message otp-demo-hint" role="status">
-                      Local demo OTP: <strong>{otpHint}</strong>
+                      Local OTP code: <strong>{otpHint}</strong>
                     </p>
                   )}
 
                   {loginRole === "farmer" && (
                     <button
-                      className="secondary-button google-demo-button"
+                      className="secondary-button google-login-button"
                       type="button"
                       disabled={isAuthenticating || !emailInput.trim()}
-                      onClick={() => void handleGoogleDemo()}
+                      onClick={() => void handleGoogleLogin()}
                     >
-                      Continue with Google (demo)
+                      Continue with Google
                     </button>
                   )}
 
@@ -1088,7 +1071,7 @@ function App() {
                     <summary>Advanced / reviewer API key</summary>
                     <p className="advanced-auth-hint">
                       Optional. Demo keys live in <code>REVIEWER_CREDENTIALS.example.md</code>.
-                      Farmers do not need an API key after Email OTP, Google demo, or registration.
+                      Farmers do not need an API key after Email OTP, Google sign-in, or registration.
                     </p>
                     <label>
                       Role-scoped API key
@@ -1109,6 +1092,21 @@ function App() {
                   {loginError && (
                     <p className="form-message error-message" role="alert">
                       {loginError}
+                      {/not registered/i.test(loginError) && loginRole === "farmer" && (
+                        <>
+                          {" "}
+                          <button
+                            className="text-button"
+                            type="button"
+                            onClick={() => {
+                              setShowOnboarding(true);
+                              setLoginError(null);
+                            }}
+                          >
+                            Register now
+                          </button>
+                        </>
+                      )}
                     </p>
                   )}
                   <div className="login-actions">
@@ -1153,8 +1151,8 @@ function App() {
                     </button>
                   )}
                   <p className="login-footnote">
-                    After Email OTP, Google demo, or registration, your session token is attached to
-                    every farmer desk request automatically — no second API-key prompt.
+                    After Email OTP, Google sign-in, or registration, your session token is attached
+                    to every farmer desk request automatically — no second API-key prompt.
                   </p>
                 </form>
               </>

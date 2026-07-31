@@ -328,6 +328,39 @@ class ApiKeyAuthorizer:
                 return credential
         return None
 
+    def farmer_email_is_known(self, email: str) -> bool:
+        """True when email maps to a seeded farmer principal or a registered farmer profile."""
+
+        credential = self.find_credential_by_email(email)
+        if credential is not None and Role.FARMER in credential.roles:
+            return True
+        if self._registered_farmer_lookup is not None:
+            return self._registered_farmer_lookup(email) is not None
+        return False
+
+    def login_farmer_by_email(
+        self,
+        email: str,
+        *,
+        authentication_method: Literal["api_key", "session_token", "otp"] = "session_token",
+    ) -> tuple[Principal, str]:
+        """Issue a farmer session for a known email. Does not create farmer profiles."""
+
+        credential = self.find_credential_by_email(email)
+        if credential is not None and Role.FARMER in credential.roles:
+            principal = self._principal_from_credential(
+                credential, authentication_method=authentication_method
+            )
+            return principal, self.issue_session(principal)
+        if self._registered_farmer_lookup is not None:
+            farmer = self._registered_farmer_lookup(email)
+            if farmer is not None:
+                principal = self.principal_for_registered_farmer(
+                    farmer, authentication_method=authentication_method
+                )
+                return principal, self.issue_session(principal)
+        raise AuthenticationError("Farmer not registered. Please register first.")
+
     def start_otp_challenge(self, *, email: str, role: Role) -> str:
         """Create an OTP challenge and return the plaintext code for local demo delivery."""
 
@@ -374,6 +407,8 @@ class ApiKeyAuthorizer:
                 token = self.issue_session(principal)
                 return principal, token
 
+        if role is Role.FARMER:
+            raise AuthenticationError("Farmer not registered. Please register first.")
         raise AuthenticationError("No principal is registered for this email and role.")
 
     def login_with_api_key(self, api_key: str, expected_role: Role | None = None) -> tuple[Principal, str]:

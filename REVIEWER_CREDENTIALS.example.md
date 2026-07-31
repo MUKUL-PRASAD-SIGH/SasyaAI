@@ -17,7 +17,7 @@ Copy-Item REVIEWER_CREDENTIALS.example.md .local/reviewer_credentials.env
 
 | Role | Subject | Login method | Example credential |
 |---|---|---|---|
-| Farmer | `farmer-asha` | Email OTP (preferred), Google demo, or API key | `farmer-demo-key-0123456789abcdef` · `asha.patil@demo.sasyaai.local` |
+| Farmer | `farmer-asha` | Email OTP (preferred), Continue with Google, or API key | `farmer-demo-key-0123456789abcdef` · `asha.patil@demo.sasyaai.local` |
 | Extension Officer (West) | `officer-west` | API key or email OTP | `officer-west-demo-key-0123456789ab` · `officer.west@demo.sasyaai.local` |
 | Extension Officer (South) | `officer-south` | API key or email OTP | `officer-south-demo-key-0123456789a` · `officer.south@demo.sasyaai.local` |
 | System Admin | `system-admin` | API key or email OTP | `admin-demo-key-0123456789abcdef0` · `admin@demo.sasyaai.local` |
@@ -25,9 +25,10 @@ Copy-Item REVIEWER_CREDENTIALS.example.md .local/reviewer_credentials.env
 ### Farmer signup / passwordless
 
 1. Open the UI as **Farmer**.
-2. Prefer **Email OTP**, **Continue with Google (demo)**, or **Register new farmer**.
-3. API key is under **Advanced / reviewer API key** and is optional for farmers.
-4. After signup/login the UI stores the session token and attaches it to every desk API call.
+2. Prefer **Email OTP**, **Continue with Google**, or **Register new farmer**.
+3. Gmail / OTP only work for emails that are already registered (or seeded farmer principals). Unregistered emails must register first.
+4. API key is under **Advanced / reviewer API key** and is optional for farmers.
+5. After signup/login the UI stores the session token and attaches it to every desk API call.
 
 ### OTP flow
 

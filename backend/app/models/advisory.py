@@ -42,13 +42,15 @@ class LoginResponse(BaseModel):
 
 
 class GoogleDemoLoginRequest(BaseModel):
+    """Continue-with-Google payload. Only email is used; profile fields are ignored."""
+
     email: str = Field(min_length=5, max_length=254)
-    name: str = Field(default="Google Demo Farmer", min_length=2, max_length=120)
-    state: str = Field(default="Maharashtra", min_length=2, max_length=80)
-    district: str = Field(default="Pune", min_length=2, max_length=120)
-    preferred_language: str = Field(default="en", min_length=2, max_length=8)
-    season: str = Field(default="kharif", min_length=2, max_length=40)
-    current_crop: str = Field(default="soybean", min_length=2, max_length=80)
+    name: str | None = Field(default=None, max_length=120)
+    state: str | None = Field(default=None, max_length=80)
+    district: str | None = Field(default=None, max_length=120)
+    preferred_language: str | None = Field(default=None, max_length=8)
+    season: str | None = Field(default=None, max_length=40)
+    current_crop: str | None = Field(default=None, max_length=80)
 
 
 class FarmerOnboardingRequest(BaseModel):

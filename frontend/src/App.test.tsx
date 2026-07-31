@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import App from "./App";
+import { ApiError } from "./api";
 import type { HitlCase } from "./types";
 
 const apiMocks = vi.hoisted(() => ({
@@ -19,6 +20,7 @@ const apiMocks = vi.hoisted(() => ({
   storeSession: vi.fn(),
   clearSession: vi.fn(),
   login: vi.fn(),
+  googleLogin: vi.fn(),
   googleDemoLogin: vi.fn(),
   fetchAuthMe: vi.fn(),
   logout: vi.fn(),
@@ -44,6 +46,7 @@ vi.mock("./api", () => ({
   storeSession: apiMocks.storeSession,
   clearSession: apiMocks.clearSession,
   login: apiMocks.login,
+  googleLogin: apiMocks.googleLogin,
   googleDemoLogin: apiMocks.googleDemoLogin,
   fetchAuthMe: apiMocks.fetchAuthMe,
   logout: apiMocks.logout,
@@ -221,13 +224,32 @@ describe("login gate", () => {
     await user.type(screen.getByLabelText("Email"), "officer.west@demo.sasyaai.local");
     await user.click(screen.getByRole("button", { name: "Request OTP" }));
 
-    expect(await screen.findByText(/Local demo OTP/i)).toBeInTheDocument();
+    expect(await screen.findByText(/Local OTP code/i)).toBeInTheDocument();
     expect(screen.getByText("123456")).toBeInTheDocument();
 
     await user.type(screen.getByLabelText("OTP code"), "123456");
     await user.click(screen.getByRole("button", { name: "Sign in" }));
 
     expect(await screen.findByText("Extension desk")).toBeInTheDocument();
+  });
+
+  it("shows register guidance when Google email is not registered", async () => {
+    mockRuntimeContext();
+    apiMocks.googleLogin.mockRejectedValue(
+      new ApiError("Farmer not registered. Please register first.", 404),
+    );
+    const user = userEvent.setup();
+    render(<App />);
+
+    await screen.findByRole("heading", { name: "Sign in" });
+    await user.type(screen.getByLabelText("Email"), "new.farmer@gmail.com");
+    await user.click(screen.getByRole("button", { name: /Continue with Google/i }));
+
+    expect(
+      await screen.findByText(/Farmer not registered\. Please register first\./i),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Register now" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Sign in" })).toBeInTheDocument();
   });
 
   it("returns to the login page after sign out", async () => {

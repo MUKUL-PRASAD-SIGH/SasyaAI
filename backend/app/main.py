@@ -289,6 +289,11 @@ def create_app(runtime_dir: Path | None = None, settings: Settings | None = None
         if request.auth_method == "email_otp":
             if not request.email:
                 raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email is required for OTP login.")
+            if role is Role.FARMER and not app.state.authorizer.farmer_email_is_known(request.email):
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Farmer not registered. Please register first.",
+                )
             if not request.otp_code:
                 code = app.state.authorizer.start_otp_challenge(email=request.email, role=role)
                 return LoginResponse(
@@ -302,13 +307,40 @@ def create_app(runtime_dir: Path | None = None, settings: Settings | None = None
                         else "OTP sent."
                     ),
                 )
-            principal, token = app.state.authorizer.verify_otp(
-                email=request.email, code=request.otp_code, role=role
-            )
+            try:
+                principal, token = app.state.authorizer.verify_otp(
+                    email=request.email, code=request.otp_code, role=role
+                )
+            except AuthenticationError as error:
+                detail = str(error) or "Authentication failed."
+                status_code = (
+                    status.HTTP_404_NOT_FOUND
+                    if "not registered" in detail.lower()
+                    else status.HTTP_401_UNAUTHORIZED
+                )
+                raise HTTPException(status_code=status_code, detail=detail) from error
+            except AuthorizationError as error:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail=str(error) or "Not authorised for this login role.",
+                ) from error
         else:
             if not request.api_key:
                 raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="API key is required.")
-            principal, token = app.state.authorizer.login_with_api_key(request.api_key, expected_role=role)
+            try:
+                principal, token = app.state.authorizer.login_with_api_key(
+                    request.api_key, expected_role=role
+                )
+            except AuthenticationError as error:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail=str(error) or "The supplied API key is not valid.",
+                ) from error
+            except AuthorizationError as error:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail=str(error) or "This API key does not match the selected role.",
+                ) from error
         http_request.state.principal = principal
         return LoginResponse(
             access_token=token,
@@ -352,8 +384,9 @@ def create_app(runtime_dir: Path | None = None, settings: Settings | None = None
                 status_code=status.HTTP_501_NOT_IMPLEMENTED,
                 content={
                     "detail": (
-                        "Full Google OIDC is optional. Use POST /api/v1/auth/google/demo for the "
-                        "hackathon Google sign-in path, or Email OTP / Register new farmer."
+                        "Full Google OIDC is optional. Use POST /api/v1/auth/google/demo "
+                        "for Continue with Google (registered farmers only), Email OTP, "
+                        "or Register new farmer."
                     )
                 },
             )
@@ -362,7 +395,8 @@ def create_app(runtime_dir: Path | None = None, settings: Settings | None = None
             content={
                 "detail": (
                     "Google OAuth toggle is on, but provider credentials are not wired in this build. "
-                    "Use POST /api/v1/auth/google/demo for the hackathon path."
+                    "Use POST /api/v1/auth/google/demo for Continue with Google "
+                    "(registered farmers only)."
                 )
             },
         )
@@ -372,48 +406,31 @@ def create_app(runtime_dir: Path | None = None, settings: Settings | None = None
         request: GoogleDemoLoginRequest,
         http_request: Request,
     ) -> LoginResponse:
-        """Hackathon-friendly Google continue path that issues a real farmer session."""
+        """Continue with Google for already-registered (or seeded) farmer emails only."""
 
-        http_request.state.audit_resource = "auth:google_demo"
-        store = getattr(service(), "registered_farmers", None)
-        if store is None or not hasattr(service(), "register_farmer"):
+        http_request.state.audit_resource = "auth:google"
+        try:
+            principal, token = app.state.authorizer.login_farmer_by_email(
+                request.email, authentication_method="session_token"
+            )
+        except AuthenticationError as error:
             raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail="Google demo login requires the synthetic/demo farmer registry.",
-            )
-        farmer = store.get_by_email(request.email)
-        if farmer is None:
-            farmer = service().register_farmer(
-                FarmerOnboardingRequest(
-                    name=request.name,
-                    email=request.email,
-                    state=request.state,
-                    district=request.district,
-                    preferred_language=request.preferred_language,
-                    season=request.season,
-                    current_crop=request.current_crop,
-                )
-            )
-            for subject in app.state.authorizer.subjects_for_region(str(farmer["state"])):
-                app.state.authorizer.assign_farmer_to_subject(subject, str(farmer["farmer_id"]))
-                assigned = list(farmer.get("assigned_officer_subjects") or [])
-                if subject not in assigned:
-                    assigned.append(subject)
-                farmer["assigned_officer_subjects"] = assigned
-            store.upsert(farmer)
-        principal = app.state.authorizer.principal_for_registered_farmer(
-            farmer, authentication_method="session_token"
-        )
-        token = app.state.authorizer.issue_session(principal)
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=str(error) or "Farmer not registered. Please register first.",
+            ) from error
         http_request.state.principal = principal
         return LoginResponse(
             access_token=token,
             token_type="bearer",
             subject=principal.subject,
-            roles=["farmer"],
-            allowed_farmer_ids=sorted(principal.allowed_farmer_ids or ()),
-            allowed_regions=None,
-            message="Authenticated with Google demo session.",
+            roles=sorted(role.value for role in principal.roles),
+            allowed_farmer_ids=(
+                sorted(principal.allowed_farmer_ids) if principal.allowed_farmer_ids is not None else None
+            ),
+            allowed_regions=(
+                sorted(principal.allowed_regions) if principal.allowed_regions is not None else None
+            ),
+            message="Authenticated with Google.",
         )
 
     @app.get("/api/v1/agents", response_model=list[AgentDescriptor], tags=["agents"])

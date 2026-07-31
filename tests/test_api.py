@@ -655,28 +655,64 @@ def test_registered_farmer_can_relogin_with_email_otp(tmp_path):
     assert me.json()["roles"] == ["farmer"]
 
 
-def test_google_demo_login_issues_farmer_session(tmp_path):
+def test_google_login_requires_registered_farmer(tmp_path):
     settings, _keys = secured_settings()
     client = TestClient(create_app(runtime_dir=tmp_path, settings=settings))
 
-    response = client.post(
+    unknown = client.post(
         "/api/v1/auth/google/demo",
+        json={"email": "unknown.farmer@gmail.com"},
+    )
+    assert unknown.status_code == 404
+    assert unknown.json()["detail"] == "Farmer not registered. Please register first."
+
+    register = client.post(
+        "/api/v1/farmers/register",
         json={
-            "email": "google.farmer@demo.sasyaai.local",
-            "name": "Google Demo Farmer",
+            "name": "Google Farmer",
+            "email": "google.farmer@gmail.com",
             "state": "Maharashtra",
             "district": "Pune",
+            "season": "kharif",
+            "current_crop": "soybean",
         },
+    )
+    assert register.status_code == 200
+    farmer_id = register.json()["farmer"]["farmer_id"]
+
+    response = client.post(
+        "/api/v1/auth/google/demo",
+        json={"email": "google.farmer@gmail.com"},
     )
     assert response.status_code == 200
     body = response.json()
     token = body["access_token"]
     assert body["roles"] == ["farmer"]
+    assert body["allowed_farmer_ids"] == [farmer_id]
     assert token
+    assert "demo" not in (body.get("message") or "").lower()
 
     me = client.get("/api/v1/auth/me", headers={"Authorization": f"Bearer {token}"})
     assert me.status_code == 200
-    assert me.json()["subject"].startswith("farmer:")
+    assert me.json()["subject"] == f"farmer:{farmer_id}"
+
+
+def test_unregistered_farmer_email_otp_is_rejected(tmp_path):
+    settings, _keys = secured_settings()
+    client = TestClient(create_app(runtime_dir=tmp_path, settings=settings))
+
+    challenge = client.post(
+        "/api/v1/auth/login",
+        json={
+            "role": "farmer",
+            "auth_method": "email_otp",
+            "email": "not.registered@gmail.com",
+        },
+    )
+    assert challenge.status_code == 404
+    assert challenge.json()["detail"] == "Farmer not registered. Please register first."
+    assert not challenge.json().get("access_token")
+    assert not challenge.json().get("otp_demo_code")
 
 
 def test_api_key_authentication_roles_and_farmer_assignments(tmp_path):
