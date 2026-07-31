@@ -534,6 +534,151 @@ def test_unknown_farmer_is_not_found(tmp_path):
     assert response.status_code == 404
 
 
+def test_farmer_registration_returns_session_token(tmp_path):
+    response = client_for(tmp_path).post(
+        "/api/v1/farmers/register",
+        json={
+            "name": "Test Farmer",
+            "email": "test.farmer@demo.sasyaai.local",
+            "state": "Maharashtra",
+            "district": "Pune",
+            "season": "kharif",
+            "current_crop": "soybean",
+        },
+    )
+
+    body = response.json()
+    assert response.status_code == 200
+    assert body["access_token"]
+    assert body["roles"] == ["farmer"]
+    assert body["farmer"]["farmer_id"].startswith("AGR_")
+
+
+def test_registered_farmer_session_can_query_without_api_key(tmp_path):
+    settings, _keys = secured_settings()
+    client = TestClient(create_app(runtime_dir=tmp_path, settings=settings))
+
+    register = client.post(
+        "/api/v1/farmers/register",
+        json={
+            "name": "Session Farmer",
+            "email": "session.farmer@demo.sasyaai.local",
+            "state": "Maharashtra",
+            "district": "Pune",
+            "season": "kharif",
+            "current_crop": "soybean",
+        },
+    )
+    assert register.status_code == 200
+    token = register.json()["access_token"]
+    farmer_id = register.json()["farmer"]["farmer_id"]
+
+    me = client.get("/api/v1/auth/me", headers={"Authorization": f"Bearer {token}"})
+    query = client.post(
+        "/api/v1/query",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "farmer_id": farmer_id,
+            "query": "Should I irrigate soybean this week?",
+            "language": "en",
+        },
+    )
+    unauthenticated = client.post(
+        "/api/v1/query",
+        json={
+            "farmer_id": farmer_id,
+            "query": "Should I irrigate soybean this week?",
+            "language": "en",
+        },
+    )
+
+    assert me.status_code == 200
+    assert me.json()["subject"] == f"farmer:{farmer_id}"
+    assert query.status_code == 200
+    assert unauthenticated.status_code == 401
+    assert unauthenticated.json()["detail"] == "Authentication is required for this endpoint."
+    assert (tmp_path / "registered_farmers.json").exists()
+    stored = json.loads((tmp_path / "registered_farmers.json").read_text(encoding="utf-8"))
+    assert any(item["farmer_id"] == farmer_id for item in stored)
+
+
+def test_registered_farmer_can_relogin_with_email_otp(tmp_path):
+    settings, _keys = secured_settings()
+    # Synthetic-style settings so demo OTP codes are exposed even when not "development".
+    settings = settings.model_copy(
+        update={"app_environment": "production", "production_data_mode": "synthetic"}
+    )
+    client = TestClient(create_app(runtime_dir=tmp_path, settings=settings))
+
+    register = client.post(
+        "/api/v1/farmers/register",
+        json={
+            "name": "OTP Farmer",
+            "email": "otp.farmer@demo.sasyaai.local",
+            "state": "Maharashtra",
+            "district": "Nagpur",
+            "season": "kharif",
+            "current_crop": "cotton",
+        },
+    )
+    assert register.status_code == 200
+    farmer_id = register.json()["farmer"]["farmer_id"]
+
+    challenge = client.post(
+        "/api/v1/auth/login",
+        json={
+            "role": "farmer",
+            "auth_method": "email_otp",
+            "email": "otp.farmer@demo.sasyaai.local",
+        },
+    )
+    assert challenge.status_code == 200
+    otp_code = challenge.json()["otp_demo_code"]
+    assert otp_code
+
+    login = client.post(
+        "/api/v1/auth/login",
+        json={
+            "role": "farmer",
+            "auth_method": "email_otp",
+            "email": "otp.farmer@demo.sasyaai.local",
+            "otp_code": otp_code,
+        },
+    )
+    assert login.status_code == 200
+    token = login.json()["access_token"]
+    assert token
+    assert login.json()["allowed_farmer_ids"] == [farmer_id]
+
+    me = client.get("/api/v1/auth/me", headers={"X-API-Key": token})
+    assert me.status_code == 200
+    assert me.json()["roles"] == ["farmer"]
+
+
+def test_google_demo_login_issues_farmer_session(tmp_path):
+    settings, _keys = secured_settings()
+    client = TestClient(create_app(runtime_dir=tmp_path, settings=settings))
+
+    response = client.post(
+        "/api/v1/auth/google/demo",
+        json={
+            "email": "google.farmer@demo.sasyaai.local",
+            "name": "Google Demo Farmer",
+            "state": "Maharashtra",
+            "district": "Pune",
+        },
+    )
+    assert response.status_code == 200
+    body = response.json()
+    token = body["access_token"]
+    assert body["roles"] == ["farmer"]
+    assert token
+
+    me = client.get("/api/v1/auth/me", headers={"Authorization": f"Bearer {token}"})
+    assert me.status_code == 200
+    assert me.json()["subject"].startswith("farmer:")
+
+
 def test_api_key_authentication_roles_and_farmer_assignments(tmp_path):
     settings, keys = secured_settings()
     client = TestClient(create_app(runtime_dir=tmp_path, settings=settings))

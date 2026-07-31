@@ -10,8 +10,6 @@ from pydantic import BaseModel, ConfigDict, Field
 class Role(str, Enum):
     FARMER = "farmer"
     EXTENSION_OFFICER = "extension_officer"
-    FPO_ADMIN = "fpo_admin"
-    POLICY_ANALYST = "policy_analyst"
     SYSTEM_ADMIN = "system_admin"
 
 
@@ -23,7 +21,8 @@ class Principal(BaseModel):
     subject: str = Field(min_length=1, max_length=120)
     roles: frozenset[Role] = Field(min_length=1)
     allowed_farmer_ids: frozenset[str] | None = None
-    authentication_method: Literal["api_key", "development_bypass"]
+    allowed_regions: frozenset[str] | None = None
+    authentication_method: Literal["api_key", "session_token", "otp", "development_bypass"]
 
 
 class ApiKeyCredential(BaseModel):
@@ -35,6 +34,8 @@ class ApiKeyCredential(BaseModel):
     subject: str = Field(min_length=1, max_length=120)
     roles: frozenset[Role] = Field(min_length=1)
     allowed_farmer_ids: frozenset[str] | None = None
+    allowed_regions: frozenset[str] | None = None
+    email: str | None = Field(default=None, max_length=254)
 
 
 class AuditEvent(BaseModel):

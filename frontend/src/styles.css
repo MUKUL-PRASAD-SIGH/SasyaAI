@@ -670,6 +670,30 @@ textarea {
   background: #f4f9f0;
 }
 
+.farmer-scope-card {
+  grid-column: 1 / -1;
+  padding: 12px 14px;
+  border: 1px solid #d9e8d1;
+  border-radius: 12px;
+  background: #f4f9f0;
+}
+
+.farmer-scope-card strong {
+  display: block;
+  margin-top: 4px;
+  font-size: 1rem;
+}
+
+.advisory-image-status {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.advisory-image-status .secondary-button {
+  justify-self: start;
+}
+
 .farmer-context div {
   padding: 12px 14px;
 }
@@ -1780,6 +1804,35 @@ textarea {
   border: 1px solid #d5e8cf;
   background: #f1f8ed;
   color: #2f5a40;
+}
+
+.google-demo-button {
+  width: 100%;
+}
+
+.advanced-auth {
+  border: 1px solid #c5d0bf;
+  border-radius: 14px;
+  padding: 10px 12px;
+  background: #f4f7f2;
+}
+
+.advanced-auth summary {
+  cursor: pointer;
+  font-weight: 800;
+  color: #1f573d;
+}
+
+.advanced-auth-hint {
+  margin: 10px 0 12px;
+  color: #3f5348;
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.advanced-auth label {
+  display: grid;
+  gap: 6px;
 }
 
 .login-actions {

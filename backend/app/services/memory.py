@@ -511,3 +511,129 @@ class LocalDeletionRequestStore(_JsonListStore):
             requests = [self._validate_request(item) for item in self._read_unlocked()]
             requests.append(validated_request)
             self._write_unlocked(requests)
+
+
+class RegisteredFarmerStore(_JsonListStore):
+    """Runtime farmer profiles created through onboarding (demo/hackathon path)."""
+
+    def __init__(self, runtime_dir: Path) -> None:
+        super().__init__(runtime_dir, "registered_farmers.json")
+
+    def list(self) -> list[dict[str, Any]]:
+        with self._locked_transaction():
+            return self._read_unlocked()
+
+    def get(self, farmer_id: str) -> dict[str, Any] | None:
+        with self._locked_transaction():
+            for farmer in self._read_unlocked():
+                if farmer.get("farmer_id") == farmer_id:
+                    return copy.deepcopy(farmer)
+        return None
+
+    def get_by_email(self, email: str) -> dict[str, Any] | None:
+        normalised = email.strip().lower()
+        with self._locked_transaction():
+            for farmer in self._read_unlocked():
+                stored = str(farmer.get("email") or "").strip().lower()
+                if stored and stored == normalised:
+                    return copy.deepcopy(farmer)
+        return None
+
+    def upsert(self, farmer: dict[str, Any]) -> dict[str, Any]:
+        with self._locked_transaction():
+            farmers = self._read_unlocked()
+            replaced = False
+            for index, existing in enumerate(farmers):
+                if existing.get("farmer_id") == farmer["farmer_id"]:
+                    farmers[index] = farmer
+                    replaced = True
+                    break
+            if not replaced:
+                farmers.append(farmer)
+            self._write_unlocked(farmers)
+        return copy.deepcopy(farmer)
+
+
+class FarmerImageStore(_JsonListStore):
+    """Metadata index for uploaded crop images used in advisory context."""
+
+    def __init__(self, runtime_dir: Path) -> None:
+        super().__init__(runtime_dir, "farmer_images.json")
+        self.image_dir = runtime_dir / "images"
+        self.image_dir.mkdir(parents=True, exist_ok=True)
+
+    def list_for_farmer(self, farmer_id: str) -> list[dict[str, Any]]:
+        with self._locked_transaction():
+            return [copy.deepcopy(item) for item in self._read_unlocked() if item.get("farmer_id") == farmer_id]
+
+    def get(self, image_id: str) -> dict[str, Any] | None:
+        with self._locked_transaction():
+            for item in self._read_unlocked():
+                if item.get("image_id") == image_id:
+                    return copy.deepcopy(item)
+        return None
+
+    def save(
+        self,
+        *,
+        image_id: str,
+        farmer_id: str,
+        filename: str,
+        content_type: str,
+        payload: bytes,
+        analysis_summary: str,
+        suspected_issue: str | None,
+        confidence: float,
+    ) -> dict[str, Any]:
+        suffix = Path(filename).suffix.lower() or ".bin"
+        target = self.image_dir / f"{image_id}{suffix}"
+        record = {
+            "image_id": image_id,
+            "farmer_id": farmer_id,
+            "filename": filename,
+            "content_type": content_type,
+            "stored_path": str(target.name),
+            "uploaded_at": datetime.now(timezone.utc).isoformat(),
+            "analysis_summary": analysis_summary,
+            "suspected_issue": suspected_issue,
+            "confidence": confidence,
+        }
+        with self._locked_transaction():
+            try:
+                target.write_bytes(payload)
+            except OSError as error:
+                raise RuntimeStateError("Uploaded image could not be stored safely.") from error
+            records = self._read_unlocked()
+            records.append(record)
+            self._write_unlocked(records)
+        return copy.deepcopy(record)
+
+
+class LearningStore(_JsonListStore):
+    """Lightweight feedback/RAG expansion memory without a separate ML pipeline."""
+
+    def __init__(self, runtime_dir: Path) -> None:
+        super().__init__(runtime_dir, "learning_memory.json")
+
+    def append(self, record: dict[str, Any]) -> None:
+        with self._locked_transaction():
+            records = self._read_unlocked()
+            records.append(record)
+            self._write_unlocked(records)
+
+    def search(self, query: str, *, state: str | None = None, limit: int = 3) -> list[dict[str, Any]]:
+        terms = {term.lower() for term in query.split() if len(term) > 2}
+        with self._locked_transaction():
+            records = self._read_unlocked()
+        ranked: list[tuple[int, dict[str, Any]]] = []
+        for record in records:
+            if not record.get("helpful", False):
+                continue
+            if state and record.get("state") and record["state"] != state:
+                continue
+            text = " ".join(str(value) for value in record.values()).lower()
+            score = sum(term in text for term in terms)
+            if score:
+                ranked.append((score, record))
+        ranked.sort(key=lambda item: item[0], reverse=True)
+        return [copy.deepcopy(record) for _, record in ranked[:limit]]

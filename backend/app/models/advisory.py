@@ -19,6 +19,74 @@ class QueryRequest(BaseModel):
     intent: Intent | None = None
     language: str = Field(default="en", min_length=2, max_length=8)
     requested_dose_ml_per_l: float | None = Field(default=None, ge=0, le=100)
+    image_id: str | None = Field(default=None, min_length=8, max_length=120)
+
+
+class LoginRequest(BaseModel):
+    role: Literal["farmer", "extension_officer", "system_admin"]
+    api_key: str | None = Field(default=None, min_length=24, max_length=512)
+    email: str | None = Field(default=None, max_length=254)
+    otp_code: str | None = Field(default=None, min_length=6, max_length=8)
+    auth_method: Literal["api_key", "email_otp"] = "api_key"
+
+
+class LoginResponse(BaseModel):
+    access_token: str
+    token_type: Literal["api_key", "bearer"] = "bearer"
+    subject: str
+    roles: list[str]
+    allowed_farmer_ids: list[str] | None = None
+    allowed_regions: list[str] | None = None
+    otp_demo_code: str | None = None
+    message: str
+
+
+class GoogleDemoLoginRequest(BaseModel):
+    email: str = Field(min_length=5, max_length=254)
+    name: str = Field(default="Google Demo Farmer", min_length=2, max_length=120)
+    state: str = Field(default="Maharashtra", min_length=2, max_length=80)
+    district: str = Field(default="Pune", min_length=2, max_length=120)
+    preferred_language: str = Field(default="en", min_length=2, max_length=8)
+    season: str = Field(default="kharif", min_length=2, max_length=40)
+    current_crop: str = Field(default="soybean", min_length=2, max_length=80)
+
+
+class FarmerOnboardingRequest(BaseModel):
+    name: str = Field(min_length=2, max_length=120)
+    email: str = Field(min_length=5, max_length=254)
+    state: str = Field(min_length=2, max_length=80)
+    district: str = Field(min_length=2, max_length=120)
+    preferred_language: str = Field(default="en", min_length=2, max_length=8)
+    season: str = Field(min_length=2, max_length=40)
+    current_crop: str = Field(min_length=2, max_length=80)
+    soil_fertility: str = Field(default="moderate", min_length=2, max_length=40)
+    water_budget_mm: int = Field(default=250, ge=0, le=10_000)
+    budget_inr: int = Field(default=50_000, ge=0, le=10_000_000)
+    farm_size_hectares: float = Field(default=1.5, gt=0, le=10_000)
+    soil_type: str = Field(default="locally recorded soil", min_length=2, max_length=120)
+    irrigation_type: str = Field(default="rainfed", min_length=2, max_length=80)
+    latitude: float | None = Field(default=None, ge=6, le=38)
+    longitude: float | None = Field(default=None, ge=68, le=98)
+
+
+class FarmerImageRecord(BaseModel):
+    image_id: str
+    farmer_id: str
+    filename: str
+    content_type: str
+    uploaded_at: datetime
+    analysis_summary: str
+    suspected_issue: str | None = None
+    confidence: float = Field(ge=0, le=1)
+
+
+class FeedbackRequest(BaseModel):
+    farmer_id: str = Field(min_length=3, max_length=64)
+    request_id: str = Field(min_length=3, max_length=100)
+    query: str = Field(min_length=3, max_length=1_000)
+    recommendation: str = Field(min_length=3, max_length=2_000)
+    helpful: bool
+    note: str = Field(default="", max_length=1_000)
 
 
 class KnowledgeHit(BaseModel):

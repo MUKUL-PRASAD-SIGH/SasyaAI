@@ -34,6 +34,9 @@ The API serves `http://127.0.0.1:8000` and the dashboard serves
 - `frontend/` is a Vite/React review interface. It does not decide safety or
   bypass the API verifier.
 - `var/`, `.env`, model artifacts, and real farmer data must remain untracked.
+- Crop image upload uses a **heuristic stub**, not real CV — see
+  [VISION_PIPELINE.md](VISION_PIPELINE.md) before building vision models or adding
+  weights under `/models/`.
 
 ## Development rules
 

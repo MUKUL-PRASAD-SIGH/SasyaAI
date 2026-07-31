@@ -49,10 +49,8 @@ Service-level RBAC check
 | Role | Permissions |
 |---|---|
 | `farmer` | Read/write own digital twin, submit images, view own recommendations |
-| `extension_officer` | Read digital twins of assigned farmers, broadcast advisories |
-| `fpo_admin` | View anonymized cluster analytics for their FPO |
-| `policy_analyst` | Read-only access to anonymized district/state aggregates |
-| `system_admin` | Full access to configuration, no access to farmer PII by default |
+| `extension_officer` | Read digital twins of assigned farmers (by region), HITL queue |
+| `system_admin` | Full configuration, audit, sync, and farmer access for operations |
 
 ### Service-to-Service Auth
 - All internal service communication uses **mTLS** (mutual TLS) via Istio

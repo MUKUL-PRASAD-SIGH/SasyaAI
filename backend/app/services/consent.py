@@ -50,10 +50,12 @@ class SyntheticConsentAdapter:
         repository: SeedRepository,
         *,
         clock: Callable[[], datetime] = _utc_now,
+        registered_consent_lookup: Callable[[str], dict[str, object] | None] | None = None,
     ) -> None:
         self.repository = repository
         self._clock = clock
         self.available = True
+        self._registered_consent_lookup = registered_consent_lookup
 
     @staticmethod
     def _utc_timestamp(value: datetime) -> datetime:
@@ -115,6 +117,8 @@ class SyntheticConsentAdapter:
             raise ConsentAdapterUnavailableError("Synthetic consent adapter is unavailable.")
 
         raw_consent = self.repository.get_consent(farmer_id)
+        if raw_consent is None and self._registered_consent_lookup is not None:
+            raw_consent = self._registered_consent_lookup(farmer_id)
         if raw_consent is None:
             return None
         record = self._record_for(farmer_id, raw_consent, request_id)

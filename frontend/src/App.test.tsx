@@ -1,6 +1,6 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import App from "./App";
 import type { HitlCase } from "./types";
@@ -14,12 +14,45 @@ const apiMocks = vi.hoisted(() => ({
   listHitlCases: vi.fn(),
   submitHitlDecision: vi.fn(),
   submitQuery: vi.fn(),
+  loadStoredSession: vi.fn(),
+  configureApiKey: vi.fn(),
+  storeSession: vi.fn(),
+  clearSession: vi.fn(),
+  login: vi.fn(),
+  googleDemoLogin: vi.fn(),
+  fetchAuthMe: vi.fn(),
+  logout: vi.fn(),
+  registerFarmer: vi.fn(),
+  uploadFarmerImage: vi.fn(),
+  listFarmerImages: vi.fn(),
+  submitFeedback: vi.fn(),
+  listAuditEvents: vi.fn(),
+  searchMemory: vi.fn(),
 }));
 
 vi.mock("./api", () => ({
-  ApiError: class ApiError extends Error {},
+  ApiError: class ApiError extends Error {
+    status?: number;
+    constructor(message: string, status?: number) {
+      super(message);
+      this.status = status;
+    }
+  },
   apiBaseUrl: "http://127.0.0.1:8000",
-  configureApiKey: vi.fn(),
+  configureApiKey: apiMocks.configureApiKey,
+  loadStoredSession: apiMocks.loadStoredSession,
+  storeSession: apiMocks.storeSession,
+  clearSession: apiMocks.clearSession,
+  login: apiMocks.login,
+  googleDemoLogin: apiMocks.googleDemoLogin,
+  fetchAuthMe: apiMocks.fetchAuthMe,
+  logout: apiMocks.logout,
+  registerFarmer: apiMocks.registerFarmer,
+  uploadFarmerImage: apiMocks.uploadFarmerImage,
+  listFarmerImages: apiMocks.listFarmerImages,
+  submitFeedback: apiMocks.submitFeedback,
+  listAuditEvents: apiMocks.listAuditEvents,
+  searchMemory: apiMocks.searchMemory,
   getKnowledgeStats: apiMocks.getKnowledgeStats,
   getRuntimeHealth: apiMocks.getRuntimeHealth,
   listAgents: apiMocks.listAgents,
@@ -29,6 +62,13 @@ vi.mock("./api", () => ({
   submitHitlDecision: apiMocks.submitHitlDecision,
   submitQuery: apiMocks.submitQuery,
 }));
+
+const officerPrincipal = {
+  subject: "officer-west",
+  roles: ["extension_officer"],
+  allowed_regions: ["Maharashtra", "Karnataka"],
+  authentication_method: "session_token",
+};
 
 const caseA: HitlCase = {
   case_id: "CASE-A",
@@ -55,11 +95,6 @@ const caseB: HitlCase = {
   trace: [{ stage: "verifier", status: "completed", detail: "B trace" }],
 };
 
-afterEach(() => {
-  cleanup();
-  vi.clearAllMocks();
-});
-
 function mockRuntimeContext() {
   apiMocks.getRuntimeHealth.mockResolvedValue({
     status: "ok",
@@ -68,6 +103,7 @@ function mockRuntimeContext() {
     runtime_mode: "demo",
     data_source_mode: "live",
     agent_execution: "deterministic_fallback",
+    auth_required: "true",
   });
   apiMocks.listAgents.mockResolvedValue([]);
   apiMocks.getKnowledgeStats.mockResolvedValue({
@@ -81,13 +117,137 @@ function mockRuntimeContext() {
   apiMocks.listSyntheticProductionFarmers.mockResolvedValue([]);
 }
 
-describe("extension-officer review safety", () => {
-  it("binds evidence and trace to the selected case", async () => {
+async function renderAuthenticatedOfficer() {
+  apiMocks.loadStoredSession.mockReturnValue({
+    token: "officer-session-token-0123456789",
+    principal: officerPrincipal,
+  });
+  apiMocks.fetchAuthMe.mockResolvedValue(officerPrincipal);
+  mockRuntimeContext();
+  apiMocks.listHitlCases.mockResolvedValue([caseA, caseB]);
+  render(<App />);
+  expect(await screen.findByRole("button", { name: "Sign out" })).toBeInTheDocument();
+}
+
+beforeEach(() => {
+  apiMocks.loadStoredSession.mockReturnValue({ token: "", principal: null });
+  apiMocks.listFarmerImages.mockResolvedValue([]);
+  apiMocks.searchMemory.mockResolvedValue([]);
+  apiMocks.listAuditEvents.mockResolvedValue([]);
+  apiMocks.logout.mockResolvedValue({ status: "logged_out" });
+});
+
+afterEach(() => {
+  cleanup();
+  vi.clearAllMocks();
+});
+
+describe("login gate", () => {
+  it("shows the login page before any dashboard content", async () => {
     mockRuntimeContext();
-    apiMocks.listHitlCases.mockResolvedValue([caseA, caseB]);
+    render(<App />);
+
+    expect(await screen.findByRole("heading", { name: "Sign in" })).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: /Farmer/i })).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: /Extension Officer/i })).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: /System Admin/i })).toBeInTheDocument();
+    expect(screen.getByLabelText("Email")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Continue with Google/i })).toBeInTheDocument();
+    expect(screen.getByText(/Advanced \/ reviewer API key/i)).toBeInTheDocument();
+    expect(screen.queryByText("Operator access")).not.toBeInTheDocument();
+    expect(screen.queryByText("Governed agricultural intelligence")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Connect" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("tab", { name: /HITL queue/i })).not.toBeInTheDocument();
+    expect(screen.queryByText("Ask a safety-gated question")).not.toBeInTheDocument();
+  });
+
+  it("signs in with an API key and reveals the role desk", async () => {
+    mockRuntimeContext();
+    apiMocks.listHitlCases.mockResolvedValue([]);
+    apiMocks.login.mockResolvedValue({
+      access_token: "farmer-session-token-0123456789",
+      token_type: "bearer",
+      subject: "farmer-asha",
+      roles: ["farmer"],
+      allowed_farmer_ids: ["AGR_MH_001234"],
+      message: "Authenticated.",
+    });
     const user = userEvent.setup();
     render(<App />);
 
+    await screen.findByRole("heading", { name: "Sign in" });
+    await user.click(screen.getByText(/Advanced \/ reviewer API key/i));
+    await user.type(
+      screen.getByLabelText("Role-scoped API key"),
+      "farmer-demo-key-0123456789abcdef",
+    );
+    await user.click(screen.getByRole("button", { name: "Sign in" }));
+
+    await waitFor(() => {
+      expect(apiMocks.storeSession).toHaveBeenCalled();
+    });
+    expect(await screen.findByText("Farmer desk")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Sign out" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Sign in" })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Demo scenario")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Farmer profile")).not.toBeInTheDocument();
+  });
+
+  it("requests an OTP then completes email login", async () => {
+    mockRuntimeContext();
+    apiMocks.listHitlCases.mockResolvedValue([]);
+    apiMocks.login
+      .mockResolvedValueOnce({
+        access_token: "",
+        token_type: "bearer",
+        subject: "",
+        roles: ["extension_officer"],
+        otp_demo_code: "123456",
+        message: "OTP sent.",
+      })
+      .mockResolvedValueOnce({
+        access_token: "officer-session-token-0123456789",
+        token_type: "bearer",
+        subject: "officer-west",
+        roles: ["extension_officer"],
+        allowed_regions: ["Maharashtra"],
+        message: "Authenticated.",
+      });
+    const user = userEvent.setup();
+    render(<App />);
+
+    await screen.findByRole("heading", { name: "Sign in" });
+    await user.click(screen.getByRole("radio", { name: /Extension Officer/i }));
+    await user.type(screen.getByLabelText("Email"), "officer.west@demo.sasyaai.local");
+    await user.click(screen.getByRole("button", { name: "Request OTP" }));
+
+    expect(await screen.findByText(/Local demo OTP/i)).toBeInTheDocument();
+    expect(screen.getByText("123456")).toBeInTheDocument();
+
+    await user.type(screen.getByLabelText("OTP code"), "123456");
+    await user.click(screen.getByRole("button", { name: "Sign in" }));
+
+    expect(await screen.findByText("Extension desk")).toBeInTheDocument();
+  });
+
+  it("returns to the login page after sign out", async () => {
+    await renderAuthenticatedOfficer();
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("button", { name: "Sign out" }));
+
+    expect(await screen.findByRole("heading", { name: "Sign in" })).toBeInTheDocument();
+    expect(apiMocks.clearSession).toHaveBeenCalled();
+    expect(apiMocks.logout).toHaveBeenCalled();
+  });
+});
+
+describe("extension-officer review safety", () => {
+  it("binds evidence and trace to the selected case", async () => {
+    await renderAuthenticatedOfficer();
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole("tab", { name: /HITL queue/i }));
     expect(await screen.findByText("A evidence")).toBeInTheDocument();
     expect(screen.getByText("A trace")).toBeInTheDocument();
 
@@ -99,11 +259,10 @@ describe("extension-officer review safety", () => {
   });
 
   it("clears a draft decision when the officer switches cases", async () => {
-    mockRuntimeContext();
-    apiMocks.listHitlCases.mockResolvedValue([caseA, caseB]);
+    await renderAuthenticatedOfficer();
     const user = userEvent.setup();
-    render(<App />);
 
+    await user.click(await screen.findByRole("tab", { name: /HITL queue/i }));
     await screen.findByText("A evidence");
     await user.selectOptions(screen.getByLabelText("Decision"), "edit_and_approve");
     await user.type(screen.getByLabelText("Decision reason"), "Draft note for case A.");
@@ -120,11 +279,18 @@ describe("extension-officer review safety", () => {
   });
 
   it("does not submit an edit-and-approve decision without edited advice", async () => {
+    apiMocks.loadStoredSession.mockReturnValue({
+      token: "officer-session-token-0123456789",
+      principal: officerPrincipal,
+    });
+    apiMocks.fetchAuthMe.mockResolvedValue(officerPrincipal);
     mockRuntimeContext();
     apiMocks.listHitlCases.mockResolvedValue([caseA]);
     const user = userEvent.setup();
     render(<App />);
 
+    expect(await screen.findByRole("button", { name: "Sign out" })).toBeInTheDocument();
+    await user.click(await screen.findByRole("tab", { name: /HITL queue/i }));
     await screen.findByText("A evidence");
     await user.selectOptions(screen.getByLabelText("Decision"), "edit_and_approve");
     await user.type(screen.getByLabelText("Decision reason"), "A reviewer note.");

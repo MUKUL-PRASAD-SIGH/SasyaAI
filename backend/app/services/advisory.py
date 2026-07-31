@@ -12,6 +12,7 @@ from app.models.advisory import (
     AdvisoryResponse,
     AgentRun,
     DemoFarmerSummary,
+    FarmerOnboardingRequest,
     HITLCase,
     HITLDecisionRequest,
     Intent,
@@ -29,7 +30,15 @@ from app.services.consent import (
     ConsentAdapterUnavailableError,
     SyntheticConsentAdapter,
 )
-from app.services.memory import HITLQueue, LocalMemoryStore, SeedRepository
+from app.services.memory import (
+    FarmerImageStore,
+    HITLQueue,
+    LearningStore,
+    LocalMemoryStore,
+    RegisteredFarmerStore,
+    SeedRepository,
+)
+from app.services.security import sanitize_user_query
 
 
 class FarmerNotFoundError(Exception):
@@ -73,10 +82,39 @@ class AdvisoryService:
     ) -> None:
         self.settings = settings or get_settings()
         active_runtime_dir = runtime_dir or self.settings.runtime_dir
+        self.runtime_dir = active_runtime_dir
         self.repository = SeedRepository(self.settings.seed_data_dir)
-        self.consent_adapter = consent_adapter or SyntheticConsentAdapter(self.repository)
+        self.registered_farmers = RegisteredFarmerStore(active_runtime_dir)
+        self.images = FarmerImageStore(active_runtime_dir)
+        self.learning = LearningStore(active_runtime_dir)
+        self.consent_adapter = consent_adapter or SyntheticConsentAdapter(
+            self.repository,
+            registered_consent_lookup=self._registered_consent,
+        )
         self.memory = LocalMemoryStore(active_runtime_dir)
         self.hitl = HITLQueue(active_runtime_dir)
+
+    def _registered_consent(self, farmer_id: str) -> dict[str, object] | None:
+        farmer = self.registered_farmers.get(farmer_id)
+        if farmer is None:
+            return None
+        consent = farmer.get("consent")
+        return consent if isinstance(consent, dict) else None
+
+    def farmer_region(self, farmer_id: str) -> str | None:
+        farmer = self.repository.get_farmer(farmer_id) or self.registered_farmers.get(farmer_id)
+        if farmer is None:
+            return None
+        return str(farmer.get("state", "")) or None
+
+    def farmer_catalog(self) -> list[tuple[str, str]]:
+        catalog = [
+            (str(summary["farmer_id"]), str(summary["state"]))
+            for summary in self.repository.list_farmer_summaries()
+        ]
+        for farmer in self.registered_farmers.list():
+            catalog.append((str(farmer["farmer_id"]), str(farmer["state"])))
+        return catalog
 
     def _apply_runtime_retention(self) -> None:
         """Prune only local demo state; governed production retention is externally owned."""
@@ -149,10 +187,10 @@ class AdvisoryService:
 
         if not receipt.allowed or receipt.consent.farmer_id != farmer_id:
             raise ConsentAdapterUnavailableError("Consent receipt cannot authorise this profile read.")
-        farmer = self.repository.get_farmer(farmer_id)
+        farmer = self.repository.get_farmer(farmer_id) or self.registered_farmers.get(farmer_id)
         if farmer is None or farmer.get("farmer_id") != farmer_id:
             raise ConsentAdapterUnavailableError(
-                "Consent and synthetic farmer profile fixtures are inconsistent."
+                "Consent and farmer profile fixtures are inconsistent."
             )
         return farmer
 
@@ -239,7 +277,12 @@ class AdvisoryService:
         )
 
     def _diagnosis(
-        self, farmer: dict[str, object], query: str, language: str
+        self,
+        farmer: dict[str, object],
+        query: str,
+        language: str,
+        *,
+        image_context: dict[str, object] | None = None,
     ) -> AdvisoryDraft:
         twin = farmer["digital_twin"]
         state = str(farmer["state"])
@@ -250,6 +293,8 @@ class AdvisoryService:
             if str(record.get("crop", "")).lower() == current_crop.lower()
         ]
         lower_query = query.lower()
+        if image_context and image_context.get("suspected_issue"):
+            lower_query = f"{lower_query} {str(image_context['suspected_issue']).lower()}"
         protocol = max(
             protocols,
             key=lambda record: str(record.get("name", "")).lower() in lower_query,
@@ -274,6 +319,15 @@ class AdvisoryService:
         evidence_records = [protocol_evidence] + [
             record for record in evidence_records if record.get("title") != protocol.get("title")
         ]
+        if image_context:
+            evidence_records = [
+                {
+                    "title": f"Uploaded crop image ({image_context.get('filename', 'image')})",
+                    "guidance": str(image_context.get("analysis_summary", "")),
+                    "_score": float(image_context.get("confidence", 0.7)),
+                },
+                *evidence_records,
+            ]
         raw_max_dose = protocol.get("max_dose_ml_per_l")
         if raw_max_dose is None:
             return AdvisoryDraft(
@@ -291,22 +345,34 @@ class AdvisoryService:
             )
 
         max_dose = float(raw_max_dose)
-        recommendation = (
-            f"The image-free demo suspects {protocol['name']} pressure in {current_crop}. Capture a clear "
-            "leaf photo and obtain officer review before applying any treatment."
-        )
-        explanation = (
-            "Without an image, diagnosis confidence remains below the auto-delivery threshold; any supplied "
-            f"dose is checked only against the {max_dose:g} ml/L seeded protocol limit."
-        )
-        if language.lower().startswith("hi"):
+        if image_context:
+            recommendation = (
+                f"Image-assisted analysis suspects {protocol['name']} pressure in {current_crop}. "
+                f"{image_context.get('analysis_summary', '')} Obtain officer review before treatment."
+            )
+            explanation = (
+                "Uploaded imagery raised diagnosis confidence; any supplied dose is still checked "
+                f"against the {max_dose:g} ml/L seeded protocol limit."
+            )
+            confidence = max(0.72, float(image_context.get("confidence", 0.72)))
+        else:
+            recommendation = (
+                f"The image-free demo suspects {protocol['name']} pressure in {current_crop}. Capture a clear "
+                "leaf photo and obtain officer review before applying any treatment."
+            )
+            explanation = (
+                "Without an image, diagnosis confidence remains below the auto-delivery threshold; any supplied "
+                f"dose is checked only against the {max_dose:g} ml/L seeded protocol limit."
+            )
+            confidence = 0.62
+        if language.lower().startswith("hi") and not image_context:
             explanation = (
                 "फोटो के बिना निदान का भरोसा कम है; उपचार से पहले कृषि अधिकारी की समीक्षा आवश्यक है।"
             )
         return AdvisoryDraft(
             recommendation=recommendation,
             explanation=explanation,
-            confidence=0.62,
+            confidence=confidence,
             evidence=self._knowledge_hits("pest_kb", evidence_records),
             pesticide_protocol_max_dose_ml_per_l=max_dose,
         )
@@ -536,6 +602,8 @@ class AdvisoryService:
 
     def query(self, request: QueryRequest) -> AdvisoryResponse:
         request_id = str(uuid4())
+        cleaned_query = sanitize_user_query(request.query)
+        request = request.model_copy(update={"query": cleaned_query})
         consent = self._require_consent(
             request.farmer_id,
             frozenset(
@@ -550,17 +618,54 @@ class AdvisoryService:
         farmer = self._read_authorised_farmer(request.farmer_id, consent)
         self._apply_runtime_retention()
 
+        image_context = None
+        if request.image_id:
+            image_context = self.images.get(request.image_id)
+            if image_context is None or image_context.get("farmer_id") != request.farmer_id:
+                raise FarmerNotFoundError(request.farmer_id)
+
         intent = request.intent or self.classify_intent(request.query)
         if intent == Intent.DIAGNOSE:
-            draft = self._diagnosis(farmer, request.query, request.language)
+            draft = self._diagnosis(
+                farmer, request.query, request.language, image_context=image_context
+            )
         elif intent == Intent.SCHEME:
             draft = self._scheme_query(farmer, request.query)
         else:
             draft = self._crop_plan(farmer, request.query, request.language)
 
+        learned = self.learning.search(request.query, state=str(farmer.get("state")))
+        if learned and draft.confidence < 0.9:
+            draft = AdvisoryDraft(
+                recommendation=draft.recommendation,
+                explanation=(
+                    f"{draft.explanation} Prior helpful advisories in this region were also considered."
+                ),
+                confidence=min(0.9, draft.confidence + 0.03),
+                evidence=draft.evidence
+                + [
+                    KnowledgeHit(
+                        source="learning_memory",
+                        title="Prior helpful advisory",
+                        score=0.55,
+                        metadata={"query": str(item.get("query", ""))[:120]},
+                    )
+                    for item in learned[:1]
+                ],
+                selected_crop=draft.selected_crop,
+                recommended_irrigation_mm=draft.recommended_irrigation_mm,
+                estimated_input_cost_inr=draft.estimated_input_cost_inr,
+                pesticide_protocol_max_dose_ml_per_l=draft.pesticide_protocol_max_dose_ml_per_l,
+            )
+
         verification = self._verify(farmer, request, intent, draft)
         verification_failed = any(check.status == "fail" for check in verification)
         needs_hitl = verification_failed or draft.confidence < self.settings.hitl_confidence_threshold
+        image_detail = (
+            f"Attached image {request.image_id} analysed for crop symptoms."
+            if image_context
+            else "No crop image was attached to this request."
+        )
         trace = [
             TraceEvent(
                 stage="consent_preflight",
@@ -571,6 +676,11 @@ class AdvisoryService:
                 ),
             ),
             TraceEvent(
+                stage="query_sanitiser",
+                status="completed",
+                detail="Sanitised the farmer query and refused instruction-override patterns.",
+            ),
+            TraceEvent(
                 stage="intent_classifier",
                 status="completed",
                 detail=f"Classified request as {intent.value}.",
@@ -579,9 +689,14 @@ class AdvisoryService:
                 stage="planner", status="completed", detail="Built a deterministic demo task graph."
             ),
             TraceEvent(
+                stage="image_processor",
+                status="completed" if image_context else "skipped",
+                detail=image_detail,
+            ),
+            TraceEvent(
                 stage="memory_agent",
                 status="completed",
-                detail="Retrieved synthetic twin and knowledge-base context.",
+                detail="Retrieved twin, knowledge-base, and learning-memory context.",
             ),
             TraceEvent(
                 stage="reflection",
@@ -598,6 +713,21 @@ class AdvisoryService:
             ),
         ]
         agent_runs = self._demo_agent_runs(intent, draft.confidence, draft.evidence)
+        if image_context:
+            agent_runs.insert(
+                3,
+                AgentRun(
+                    agent_id="vision_assist",
+                    name="Vision Assist",
+                    role="Lightweight crop-image symptom screening",
+                    status="completed",
+                    execution_mode="tool",
+                    duration_ms=0,
+                    summary=str(image_context.get("analysis_summary", "Processed uploaded image.")),
+                    input_sources=["farmer_image"],
+                    output_confidence=float(image_context.get("confidence", 0.7)),
+                ),
+            )
 
         reflection = ReflectionResult(
             status="pass",
@@ -683,10 +813,160 @@ class AdvisoryService:
         return KnowledgeStats(runtime_mode="demo", **self.repository.knowledge_stats())
 
     def list_demo_farmers(self) -> list[DemoFarmerSummary]:
-        return [
+        summaries = [
             DemoFarmerSummary.model_validate(summary)
             for summary in self.repository.list_farmer_summaries()
         ]
+        for farmer in self.registered_farmers.list():
+            twin = farmer["digital_twin"]
+            summaries.append(
+                DemoFarmerSummary(
+                    farmer_id=str(farmer["farmer_id"]),
+                    name=str(farmer["name"]),
+                    state=str(farmer["state"]),
+                    district=str(farmer["district"]),
+                    preferred_language=str(farmer["preferred_language"]),
+                    current_crop=str(twin["current_crop"]),
+                    season=str(twin["season"]),
+                    water_budget_mm=int(twin["water_budget_mm"]),
+                    farm_size_hectares=float(twin["farm_size_hectares"]),
+                )
+            )
+        return sorted(summaries, key=lambda item: (item.state, item.district, item.farmer_id))
+
+    def register_farmer(self, request: FarmerOnboardingRequest) -> dict[str, object]:
+        state_code = "".join(ch for ch in request.state.upper() if ch.isalpha())[:2] or "IN"
+        sequence = 100000 + (len(self.registered_farmers.list()) % 900000)
+        farmer_id = f"AGR_{state_code}_{sequence:06d}"
+        while self.has_farmer(farmer_id):
+            sequence += 1
+            farmer_id = f"AGR_{state_code}_{sequence:06d}"
+        now = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+        farmer = {
+            "farmer_id": farmer_id,
+            "name": request.name,
+            "email": request.email.strip().lower(),
+            "state": request.state,
+            "district": request.district,
+            "preferred_language": request.preferred_language,
+            "synthetic_data": True,
+            "consent": {
+                "advisory": True,
+                "consent_id": f"REG_CONSENT_{farmer_id}",
+                "status": "granted",
+                "purpose": "agricultural_advisory",
+                "scopes": ["farmer_profile", "advisory", "advisory_memory"],
+                "granted_at": now,
+                "expires_at": "2030-12-31T23:59:59Z",
+                "revoked_at": None,
+            },
+            "digital_twin": {
+                "season": request.season,
+                "current_crop": request.current_crop,
+                "soil_fertility": request.soil_fertility,
+                "water_budget_mm": request.water_budget_mm,
+                "budget_inr": request.budget_inr,
+                "eligible_schemes": ["PM-KISAN", "Soil Health Card"],
+                "weather_alert": False,
+                "farm_size_hectares": request.farm_size_hectares,
+                "soil_type": request.soil_type,
+                "irrigation_type": request.irrigation_type,
+                "risk_flags": [],
+            },
+            "location": (
+                {"latitude": request.latitude, "longitude": request.longitude}
+                if request.latitude is not None and request.longitude is not None
+                else None
+            ),
+            "assigned_officer_subjects": [],
+        }
+        return self.registered_farmers.upsert(farmer)
+
+    @staticmethod
+    def analyse_crop_image(*, filename: str, payload: bytes) -> tuple[str, str | None, float]:
+        """Filename/size heuristic for demo uploads — NOT real computer vision.
+
+        Replace with a vision model or service before production diagnosis.
+        See Docs/VISION_PIPELINE.md.
+        """
+        lower_name = filename.lower()
+        size_hint = "small" if len(payload) < 40_000 else "detailed"
+        if any(term in lower_name for term in ("aphid", "pest", "insect")):
+            return (
+                f"Heuristic {size_hint} image screen suggests possible insect pressure on leaves.",
+                "aphid",
+                0.78,
+            )
+        if any(term in lower_name for term in ("spot", "blight", "rust", "leaf")):
+            return (
+                f"Heuristic {size_hint} image screen suggests leaf spotting that needs IPM confirmation.",
+                "leaf spot",
+                0.74,
+            )
+        return (
+            f"Heuristic {size_hint} image screen found no confident pest label; officer review recommended.",
+            None,
+            0.66,
+        )
+
+    def upload_farmer_image(
+        self,
+        *,
+        farmer_id: str,
+        filename: str,
+        content_type: str,
+        payload: bytes,
+    ) -> dict[str, object]:
+        if not self.has_farmer(farmer_id):
+            raise FarmerNotFoundError(farmer_id)
+        if content_type not in {"image/jpeg", "image/png", "image/webp"}:
+            raise ValueError("Only JPEG, PNG, or WebP images are accepted.")
+        if len(payload) > 5_000_000:
+            raise ValueError("Image exceeds the 5 MB upload limit.")
+        # Heuristic stub — not real computer vision. See Docs/VISION_PIPELINE.md.
+        summary, suspected, confidence = self.analyse_crop_image(filename=filename, payload=payload)
+        return self.images.save(
+            image_id=str(uuid4()),
+            farmer_id=farmer_id,
+            filename=filename,
+            content_type=content_type,
+            payload=payload,
+            analysis_summary=summary,
+            suspected_issue=suspected,
+            confidence=confidence,
+        )
+
+    def list_farmer_images(self, farmer_id: str) -> list[dict[str, object]]:
+        if not self.has_farmer(farmer_id):
+            raise FarmerNotFoundError(farmer_id)
+        return self.images.list_for_farmer(farmer_id)
+
+    def record_feedback(
+        self,
+        *,
+        farmer_id: str,
+        request_id: str,
+        query: str,
+        recommendation: str,
+        helpful: bool,
+        note: str,
+    ) -> dict[str, object]:
+        if not self.has_farmer(farmer_id):
+            raise FarmerNotFoundError(farmer_id)
+        farmer = self.repository.get_farmer(farmer_id) or self.registered_farmers.get(farmer_id) or {}
+        record = {
+            "feedback_id": str(uuid4()),
+            "farmer_id": farmer_id,
+            "request_id": request_id,
+            "query": sanitize_user_query(query),
+            "recommendation": recommendation[:2_000],
+            "helpful": helpful,
+            "note": note[:1_000],
+            "state": farmer.get("state"),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+        self.learning.append(record)
+        return record
 
     def decide_hitl(self, case_id: str, request: HITLDecisionRequest) -> HITLCase | None:
         self._apply_runtime_retention()
@@ -714,7 +994,7 @@ class AdvisoryService:
     def has_farmer(self, farmer_id: str) -> bool:
         """Check the synthetic identity index for an administrative lifecycle request."""
 
-        return self.repository.has_farmer(farmer_id)
+        return self.repository.has_farmer(farmer_id) or self.registered_farmers.get(farmer_id) is not None
 
     def purge_farmer_runtime_data(self, farmer_id: str) -> dict[str, int]:
         """Purge only local runtime records; seed fixtures remain immutable evidence."""

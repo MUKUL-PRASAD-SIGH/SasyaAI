@@ -67,6 +67,10 @@ env/
 #    ├── coqui_tts/          → Text-to-speech models
 #    ├── embeddings/         → sentence-transformers + FAISS index
 #    └── llm_gguf/           → Quantized Llama 3.2 for edge
+#
+#    Vision status: crop upload works; analysis is a filename/size
+#    heuristic stub — NOT real CV. See Docs/VISION_PIPELINE.md before
+#    adding weights, NPSS caches, or vision-agent inference artifacts.
 # ─────────────────────────────────────────────────────────────────
 *.pt
 *.pth
@@ -96,6 +100,8 @@ tensorboard_logs/
 #    │   ├── agristack/      → Farmer registry + land records (JSON)
 #    │   ├── soil_health/    → Soil Health Card database
 #    │   ├── npss_images/    → Pest/disease labeled images (~50K)
+#    │                         (raw NPSS — not used by current stub CV;
+#    │                          see Docs/VISION_PIPELINE.md)
 #    │   ├── weather_imd/    → IMD NetCDF/CSV archives
 #    │   ├── enam_prices/    → Market price feed snapshots
 #    │   ├── satellite/      → Sentinel-2, ResourceSat GeoTIFFs
@@ -274,3 +280,9 @@ logs/
 
 # Local reference material retained outside the repository history.
 ignore/
+
+# Hackathon reviewer credentials (never commit real/local copies)
+REVIEWER_CREDENTIALS.md
+.local/
+.local/**
+

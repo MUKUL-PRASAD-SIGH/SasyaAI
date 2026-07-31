@@ -555,7 +555,7 @@ Farmer App → Mobile OTP (Aadhaar-linked) → DigiLocker eKYC (optional)
 
 ### 12.3 RBAC Roles
 
-`farmer` (own twin, read/write) · `extension_officer` (assigned farmers + Human-in-Loop queue) · `fpo_admin` (anonymized cluster analytics) · `policy_analyst` (anonymized aggregates) · `system_admin` (config, no PII by default).
+`farmer` (own twin, read/write) · `extension_officer` (assigned farmers by region + Human-in-Loop queue) · `system_admin` (config, audit, sync, full farmer access for operations).
 
 ### 12.4 PII Minimization
 

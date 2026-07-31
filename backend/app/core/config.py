@@ -26,6 +26,10 @@ class Settings(BaseSettings):
     rate_limit_enabled: bool = True
     rate_limit_requests: int = 120
     rate_limit_window_seconds: int = 60
+    rate_limit_farmer_requests: int = 60
+    rate_limit_officer_requests: int = 120
+    rate_limit_admin_requests: int = 240
+    google_oauth_enabled: bool = False
     retention_days: int = 30
     safety_rule_set_version: str = "synthetic-demo-2026.07"
 

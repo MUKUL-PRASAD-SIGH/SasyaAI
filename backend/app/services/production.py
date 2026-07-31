@@ -14,6 +14,7 @@ from app.models.advisory import (
     AdvisoryResponse,
     AgentRun,
     DemoFarmerSummary,
+    FarmerOnboardingRequest,
     HITLCase,
     HITLDecisionRequest,
     Intent,
@@ -33,6 +34,7 @@ from app.models.integration import (
     SourceProvenance,
 )
 from app.services.advisory import (
+    AdvisoryService,
     ConsentNotGrantedError,
     FarmerNotFoundError,
     HITLCaseNotPendingError,
@@ -45,9 +47,10 @@ from app.services.connectors import (
     ToolDataUnavailableError,
 )
 from app.services.llm import AgentPlan, LLMRequest, TaskGraph, build_llm_provider
-from app.services.memory import SeedRepository
+from app.services.memory import FarmerImageStore, RegisteredFarmerStore, SeedRepository
 from app.services.persistence import PostgresMemoryStore
 from app.services.retrieval import QdrantKnowledgeStore
+from app.services.security import sanitize_user_query
 
 _DOSE_PATTERN = re.compile(r"\b\d+(?:\.\d+)?\s*(?:ml\s*/\s*l|ml/l|millilit(?:re|er)s?\s+per\s+lit(?:re|er))\b", re.I)
 
@@ -72,6 +75,16 @@ class ProductionAdvisoryService:
         if self.seed_repository is not None:
             self.retrieval.ensure_synthetic_seed(self.seed_repository)
         self.llm = build_llm_provider(settings)
+        self.registered_farmers = (
+            RegisteredFarmerStore(settings.runtime_dir)
+            if settings.production_data_mode == "synthetic"
+            else None
+        )
+        self.farmer_images = (
+            FarmerImageStore(settings.runtime_dir)
+            if settings.production_data_mode == "synthetic"
+            else None
+        )
 
     @property
     def synthetic_data_mode(self) -> bool:
@@ -92,6 +105,15 @@ class ProductionAdvisoryService:
             raise ToolDataUnavailableError("The production farmer profile does not meet the trusted schema.")
         return profile
 
+    def _registered_consent_raw(self, farmer_id: str) -> dict[str, Any] | None:
+        if self.registered_farmers is None:
+            return None
+        farmer = self.registered_farmers.get(farmer_id)
+        if farmer is None:
+            return None
+        consent = farmer.get("consent")
+        return consent if isinstance(consent, dict) else None
+
     def _live_consent(
         self,
         farmer_id: str,
@@ -99,7 +121,9 @@ class ProductionAdvisoryService:
         *,
         request_id: str | None = None,
     ) -> ConsentPreflightResult:
-        raw = self.tools.agristack_consent(farmer_id, "agricultural_advisory")
+        raw = self._registered_consent_raw(farmer_id) or self.tools.agristack_consent(
+            farmer_id, "agricultural_advisory"
+        )
         if raw is None:
             raise FarmerNotFoundError(farmer_id)
         now = datetime.now(timezone.utc)
@@ -174,6 +198,22 @@ class ProductionAdvisoryService:
         self, farmer_id: str, consent: ConsentPreflightResult
     ) -> tuple[dict[str, Any], dict[str, Any]]:
         """Refresh the twin from its live authorised source before every advisory."""
+
+        registered = (
+            self.registered_farmers.get(farmer_id) if self.registered_farmers is not None else None
+        )
+        if registered is not None:
+            profile = self._require_profile_shape(farmer_id, registered)
+            self.memory.upsert_farmer(farmer_id, profile)
+            self.memory.upsert_consent(farmer_id, consent.consent.model_dump(mode="json"))
+            source = {
+                "provider": "synthetic_production_seed",
+                "source_record_id": farmer_id,
+                "retrieved_at": datetime.now(timezone.utc).isoformat(),
+                "freshness": "synthetic_reference",
+                "data": profile,
+            }
+            return profile, source
 
         source = self.tools.agristack_farmer_context(farmer_id)
         profile = self._require_profile_shape(farmer_id, source.get("data"))
@@ -396,6 +436,24 @@ class ProductionAdvisoryService:
         )
         agent_runs: list[AgentRun] = []
         request_id = str(uuid4())
+        cleaned_query = sanitize_user_query(request.query)
+        image_context: dict[str, Any] | None = None
+        image_detail = "No crop image was attached to this request."
+        if request.image_id:
+            if self.farmer_images is None:
+                raise ToolDataUnavailableError(
+                    "Image attachments are available only in synthetic production mode."
+                )
+            image_context = self.farmer_images.get(request.image_id)
+            if image_context is None or image_context.get("farmer_id") != request.farmer_id:
+                raise FarmerNotFoundError(request.farmer_id)
+            image_detail = f"Attached image {request.image_id} analysed for crop symptoms."
+            analysis = str(image_context.get("analysis_summary", "")).strip()
+            if analysis:
+                cleaned_query = sanitize_user_query(
+                    f"{cleaned_query}\n\nUploaded crop image analysis: {analysis}"
+                )
+        request = request.model_copy(update={"query": cleaned_query})
         consent = self._live_consent(
             request.farmer_id,
             frozenset({ConsentScope.FARMER_PROFILE, ConsentScope.ADVISORY, ConsentScope.ADVISORY_MEMORY}),
@@ -574,6 +632,11 @@ class ProductionAdvisoryService:
                 ),
             ),
             TraceEvent(
+                stage="image_processor",
+                status="completed" if image_context else "skipped",
+                detail=image_detail,
+            ),
+            TraceEvent(
                 stage="memory_agent",
                 status="completed",
                 detail="Read the durable farmer twin and Qdrant evidence.",
@@ -725,10 +788,90 @@ class ProductionAdvisoryService:
 
         if self.seed_repository is None:
             return []
-        return [
+        summaries = [
             DemoFarmerSummary(**summary)
             for summary in self.seed_repository.list_farmer_summaries()
         ]
+        if self.registered_farmers is not None:
+            for farmer in self.registered_farmers.list():
+                twin = farmer["digital_twin"]
+                summaries.append(
+                    DemoFarmerSummary(
+                        farmer_id=str(farmer["farmer_id"]),
+                        name=str(farmer["name"]),
+                        state=str(farmer["state"]),
+                        district=str(farmer["district"]),
+                        preferred_language=str(farmer["preferred_language"]),
+                        current_crop=str(twin["current_crop"]),
+                        season=str(twin["season"]),
+                        water_budget_mm=int(twin["water_budget_mm"]),
+                        farm_size_hectares=float(twin["farm_size_hectares"]),
+                    )
+                )
+        return sorted(summaries, key=lambda item: (item.state, item.district, item.farmer_id))
+
+    def register_farmer(self, request: FarmerOnboardingRequest) -> dict[str, object]:
+        if not self.synthetic_data_mode or self.registered_farmers is None:
+            raise ToolDataUnavailableError(
+                "Farmer onboarding registration is available only in synthetic production mode."
+            )
+        state_code = "".join(ch for ch in request.state.upper() if ch.isalpha())[:2] or "IN"
+        sequence = 100000 + (len(self.registered_farmers.list()) % 900000)
+        farmer_id = f"AGR_{state_code}_{sequence:06d}"
+        while self.has_farmer(farmer_id):
+            sequence += 1
+            farmer_id = f"AGR_{state_code}_{sequence:06d}"
+        now = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+        farmer = {
+            "farmer_id": farmer_id,
+            "name": request.name,
+            "email": request.email.strip().lower(),
+            "state": request.state,
+            "district": request.district,
+            "preferred_language": request.preferred_language,
+            "synthetic_data": True,
+            "consent": {
+                "advisory": True,
+                "consent_id": f"REG_CONSENT_{farmer_id}",
+                "status": "granted",
+                "purpose": "agricultural_advisory",
+                "scopes": ["farmer_profile", "advisory", "advisory_memory"],
+                "granted_at": now,
+                "expires_at": "2030-12-31T23:59:59Z",
+                "revoked_at": None,
+            },
+            "digital_twin": {
+                "season": request.season,
+                "current_crop": request.current_crop,
+                "soil_fertility": request.soil_fertility,
+                "water_budget_mm": request.water_budget_mm,
+                "budget_inr": request.budget_inr,
+                "eligible_schemes": ["PM-KISAN", "Soil Health Card"],
+                "weather_alert": False,
+                "farm_size_hectares": request.farm_size_hectares,
+                "soil_type": request.soil_type,
+                "irrigation_type": request.irrigation_type,
+                "risk_flags": [],
+            },
+            "location": (
+                {"latitude": request.latitude, "longitude": request.longitude}
+                if request.latitude is not None and request.longitude is not None
+                else None
+            ),
+            "assigned_officer_subjects": [],
+        }
+        return self.registered_farmers.upsert(farmer)
+
+    def farmer_region(self, farmer_id: str) -> str | None:
+        if self.registered_farmers is not None:
+            registered = self.registered_farmers.get(farmer_id)
+            if registered is not None:
+                return str(registered.get("state")) or None
+        if self.seed_repository is None:
+            farmer = self.memory.get_farmer(farmer_id)
+            return str(farmer["state"]) if farmer else None
+        farmer = self.seed_repository.get_farmer(farmer_id)
+        return str(farmer["state"]) if farmer else None
 
     def decide_hitl(self, case_id: str, request: HITLDecisionRequest) -> HITLCase | None:
         outcome = self.memory.decide_hitl(
@@ -752,7 +895,50 @@ class ProductionAdvisoryService:
         return HITLCase(**case) if case else None
 
     def has_farmer(self, farmer_id: str) -> bool:
+        if self.registered_farmers is not None and self.registered_farmers.get(farmer_id) is not None:
+            return True
+        if self.seed_repository is not None and self.seed_repository.get_farmer(farmer_id) is not None:
+            return True
         return self.memory.has_farmer(farmer_id)
+
+    def upload_farmer_image(
+        self,
+        *,
+        farmer_id: str,
+        filename: str,
+        content_type: str,
+        payload: bytes,
+    ) -> dict[str, object]:
+        if self.farmer_images is None:
+            raise ToolDataUnavailableError(
+                "Image uploads are available only in synthetic production mode."
+            )
+        if not self.has_farmer(farmer_id):
+            raise FarmerNotFoundError(farmer_id)
+        if content_type not in {"image/jpeg", "image/png", "image/webp"}:
+            raise ValueError("Only JPEG, PNG, or WebP images are accepted.")
+        if len(payload) > 5_000_000:
+            raise ValueError("Image exceeds the 5 MB upload limit.")
+        summary, suspected, confidence = AdvisoryService.analyse_crop_image(
+            filename=filename, payload=payload
+        )
+        return self.farmer_images.save(
+            image_id=str(uuid4()),
+            farmer_id=farmer_id,
+            filename=filename,
+            content_type=content_type,
+            payload=payload,
+            analysis_summary=summary,
+            suspected_issue=suspected,
+            confidence=confidence,
+        )
+
+    def list_farmer_images(self, farmer_id: str) -> list[dict[str, object]]:
+        if self.farmer_images is None:
+            return []
+        if not self.has_farmer(farmer_id):
+            raise FarmerNotFoundError(farmer_id)
+        return self.farmer_images.list_for_farmer(farmer_id)
 
     def purge_farmer_runtime_data(self, farmer_id: str) -> dict[str, int]:
         removed = self.memory.purge_farmer_runtime_data(farmer_id)
