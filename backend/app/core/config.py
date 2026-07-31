@@ -35,9 +35,9 @@ class Settings(BaseSettings):
     # migration from leaking through the advisory workflow.
     llm_provider: Literal["gemini"] = "gemini"
     gemini_api_key: str = ""
-    # Use Google's stable moving alias by default. Individual deployments can
-    # pin a specific model through GEMINI_MODEL after validating access/quota.
-    gemini_model: str = "gemini-flash-latest"
+    # Pin the validated lightweight production model by default. Individual
+    # deployments can override GEMINI_MODEL after validating access and quota.
+    gemini_model: str = "gemini-3.1-flash-lite"
     llm_timeout_seconds: float = 20.0
     llm_max_retries: int = 2
 
