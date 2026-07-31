@@ -515,7 +515,8 @@ function App() {
       {runtime?.runtime_mode === "production" && runtime.data_source_mode === "synthetic" && (
         <p className="synthetic-notice" role="status">
           Synthetic production mode: farmer, consent, market, and knowledge records are labelled
-          fixtures. Every result remains review-only until the approved AgriStack gateway is enabled.
+          fixtures. This environment is for internal workflow testing; enable the approved AgriStack
+          gateway before serving real farmers.
         </p>
       )}
 

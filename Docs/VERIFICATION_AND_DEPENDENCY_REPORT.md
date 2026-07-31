@@ -9,8 +9,9 @@ SasyaAI has a deliberately separated runtime and data-source switch. The
 checked-in default is the local synthetic-data `demo` runtime; it makes **no
 external API calls** and is not a production advisory service. It reads
 checked-in seed JSON and writes local runtime JSON. Production can run with
-`PRODUCTION_DATA_MODE=synthetic` for an authenticated, durable, review-only
-pilot, or with `PRODUCTION_DATA_MODE=live` for the AgriStack path.
+`PRODUCTION_DATA_MODE=synthetic` for an authenticated, durable pilot, or with
+`PRODUCTION_DATA_MODE=live` for the AgriStack path. Synthetic output is for
+internal workflow testing only and never for consequential farmer decisions.
 
 The `production` runtime is implemented behind explicit adapters. It uses
 separate Gemini calls for schema-constrained routing, specialist drafting, and
@@ -30,7 +31,7 @@ or embedded credentials.
 
 | Check | Result | Evidence |
 |---|---|---|
-| Backend tests | Pass | `python -m pytest -q` — **40 passed** |
+| Backend tests | Pass | `python -m pytest -q` — **41 passed** |
 | Backend lint | Pass | `python -m ruff check backend tests scripts` — all checks passed |
 | Frontend component tests | Pass | `npm test` — 3 review-safety tests passed |
 | Browser end-to-end tests | Assertions pass; Windows runner cleanup flaky | 3 Chromium journeys reached their passing assertions; the local Playwright web-server process did not exit cleanly after completion on this host |
@@ -76,7 +77,7 @@ The repository contains placeholders for future integration work:
 | `DATABASE_URL` | Required PostgreSQL system of record for production profiles, episodes, HITL cases, deletion receipts, and audit events |
 | `QDRANT_URL`, `QDRANT_API_KEY` and `qdrant-client` | Required in production for state-filtered semantic retrieval and farmer-scoped vector memory |
 | `fastembed==0.8.0` | CPU-only multilingual ONNX embeddings; the 384-dimension model is preloaded into the API image |
-| AgriStack and market gateway settings | AgriStack is required only in `PRODUCTION_DATA_MODE=live`; synthetic mode is explicit and review-only |
+| AgriStack and market gateway settings | AgriStack is required only in `PRODUCTION_DATA_MODE=live`; synthetic mode is explicit and internal-only |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | Optional central OTLP trace export; `/metrics` and local instrumentation remain enabled when empty |
 | `LYZR_API_KEY`, `LYZR_WORKFLOW_ID`, `LYZR_BASE_URL` | Optional future orchestration configuration; no running code invokes Lyzr |
 

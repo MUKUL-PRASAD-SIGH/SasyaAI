@@ -346,11 +346,11 @@ class ProductionAdvisoryService:
             checks.append(
                 VerificationCheck(
                     name="synthetic_data_boundary",
-                    status="fail",
+                    status="pass",
                     message=(
                         "This production run uses labelled synthetic farmer, consent, and "
-                        "market data; it is review-only until PRODUCTION_DATA_MODE=live "
-                        "uses the approved AgriStack gateway."
+                        "market data. It is suitable for internal workflow testing only; "
+                        "switch PRODUCTION_DATA_MODE=live before serving real farmers."
                     ),
                 )
             )

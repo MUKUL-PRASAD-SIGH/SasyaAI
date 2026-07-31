@@ -4,8 +4,9 @@
 `PRODUCTION_DATA_MODE=live` for the approved AgriStack gateway, or
 `PRODUCTION_DATA_MODE=synthetic` for the authenticated local launch profile.
 Synthetic mode deliberately reads labelled seed records, persists the workflow
-through PostgreSQL/Qdrant, calls the real Gemini agents, and forces every result
-through human review; it is not a hidden fallback and cannot be auto-delivered.
+through PostgreSQL/Qdrant, and calls the real Gemini agents. It is not a hidden
+fallback: the UI and provenance identify it, and it must never be used for
+consequential farmer decisions.
 A missing or unavailable dependency returns a controlled `503` without
 delivering an advisory.
 

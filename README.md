@@ -7,7 +7,7 @@ labelled synthetic-data launch profile:
 
 - `RUNTIME_MODE=demo` is a credential-free local workflow over synthetic seed data. It exists for contract development and must not be presented as a live advisory service.
 - `RUNTIME_MODE=production` is the startup path: Gemini plans and drafts grounded advice, PostgreSQL owns farmer/HITL/audit state, and Qdrant retrieves state-filtered knowledge and farmer-scoped episodes.
-- `PRODUCTION_DATA_MODE=synthetic` runs that same authenticated, durable, multi-agent workflow over the checked-in synthetic farmer/consent/knowledge corpus. Every snapshot is labelled synthetic and every result is review-only; it is useful for product pilots, agent evaluation, UI review, and integration work without implying live farmer data.
+- `PRODUCTION_DATA_MODE=synthetic` runs that same authenticated, durable, multi-agent workflow over the checked-in synthetic farmer/consent/knowledge corpus. Every snapshot is labelled synthetic; it is useful for product pilots, agent evaluation, UI review, and integration work, but never implies live farmer data or authorises consequential advice.
 - `PRODUCTION_DATA_MODE=live` is the AgriStack-ready path. Set it after the approved gateway URL/token and consent/profile contract are available; the agent graph does not change when the data source switches.
 
 ## What works today
@@ -29,7 +29,7 @@ labelled synthetic-data launch profile:
 3. The tool agent reads the configured weather/market source; the memory agent retrieves only state-matched Qdrant evidence and farmer-scoped episodes.
 4. Gemini drafts a structured answer with evidence IDs; a reflection call checks grounding and clarity.
 5. A deterministic verifier controls weather, evidence, dose, freshness, confidence, and synthetic-data boundaries.
-6. Live-mode answers can be delivered after all gates pass; uncertain or synthetic-mode answers become durable HITL cases in PostgreSQL. A failed hard check cannot be approved.
+6. Live-mode and synthetic-mode answers can be delivered after all gates pass; uncertain answers become durable HITL cases in PostgreSQL. Synthetic mode is for internal testing only, and a failed hard check cannot be approved.
 
 Gemini is the initial LLM provider because it offers multilingual structured JSON
 generation and a limited free development tier; capacity still needs quotas,

@@ -1,4 +1,5 @@
 import json
+from types import SimpleNamespace
 
 import httpx
 import pytest
@@ -101,6 +102,42 @@ def test_synthetic_production_gateway_is_explicitly_provenanced():
     assert context["provider"] == "synthetic_production_seed"
     assert context["freshness"] == "synthetic_reference"
     assert weather["freshness"] == "synthetic_reference"
+
+
+def test_synthetic_data_boundary_is_visible_without_replacing_safety_gates():
+    service = ProductionAdvisoryService.__new__(ProductionAdvisoryService)
+    service.settings = SimpleNamespace(production_data_mode="synthetic")
+    plan = AgentPlan(
+        intent=Intent.CROP_PLAN,
+        recommendation="Use the cited crop option.",
+        explanation="The option is supported by the retrieved source.",
+        confidence=0.86,
+        evidence_ids=["crop-123"],
+    )
+    checks = service._verify(
+        plan,
+        [
+            KnowledgeHit(
+                source="crop_kb",
+                title="Synthetic crop option",
+                score=0.91,
+                metadata={"document_id": "crop-123"},
+            )
+        ],
+        {
+            "provider": "synthetic_production_seed",
+            "freshness": "synthetic_reference",
+            "data": {"wind_speed_kmh": 12, "max_precipitation_probability": 25},
+        },
+        {"provider": "synthetic_production_seed", "freshness": "synthetic_reference", "data": {}},
+        Intent.CROP_PLAN,
+        needs_weather=True,
+        needs_market=True,
+    )
+
+    boundary = next(check for check in checks if check.name == "synthetic_data_boundary")
+    assert boundary.status == "pass"
+    assert "internal workflow testing" in boundary.message
 
 
 def test_default_embedding_model_is_supported_by_cpu_only_fastembed():
