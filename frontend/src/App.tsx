@@ -1738,6 +1738,17 @@ function App() {
                     {attachedImage.analysis_summary
                       ? ` · ${String(attachedImage.analysis_summary)}`
                       : ""}
+                    {typeof attachedImage.confidence === "number"
+                      ? ` · confidence ${(Number(attachedImage.confidence) * 100).toFixed(0)}%`
+                      : ""}
+                    {attachedImage.suspected_issue
+                      ? ` · suspected: ${String(attachedImage.suspected_issue)}`
+                      : ""}
+                    {typeof attachedImage.vision === "object" &&
+                    attachedImage.vision !== null &&
+                    (attachedImage.vision as { needs_officer_review?: boolean }).needs_officer_review
+                      ? " · low confidence → officer review recommended"
+                      : ""}
                   </p>
                 )}
                 {advisoryImageStatus && (

@@ -1,0 +1,121 @@
+#!/usr/bin/env python3
+"""Prepare optional YOLO plant-disease ONNX weights for SasyaAI.
+
+Never commit large ``.pt`` / ``.onnx`` files. This script:
+
+1. Locates ``PlantDiseaseDetection.pt`` (local path or Hugging Face download)
+2. Writes ``models/yolov8_npss/labels.yaml`` from model class names
+3. Exports Ultralytics ONNX (opset 17) as ``models/yolov8_npss/best.onnx``
+
+Usage (from repo root)::
+
+    pip install ultralytics onnx onnxruntime pyyaml
+    python scripts/setup_vision.py
+    python scripts/setup_vision.py --pt models/yolov8_npss/PlantDiseaseDetection.pt
+    python scripts/setup_vision.py --hf-id <org/model>   # optional download
+
+Then set ``VISION_BACKEND=auto`` (default) or ``onnx`` in ``.env``.
+"""
+
+from __future__ import annotations
+
+import argparse
+import shutil
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+MODEL_DIR = ROOT / "models" / "yolov8_npss"
+DEFAULT_PT_NAMES = (
+    "PlantDiseaseDetection.pt",
+    "best.pt",
+)
+DEFAULT_HF_ID = ""  # Fill when you publish a pinned HF revision for reviewers.
+
+
+def _require_ultralytics():
+    try:
+        import yaml  # noqa: F401
+        from ultralytics import YOLO  # noqa: F401
+    except ImportError as error:
+        raise SystemExit(
+            "Missing export deps. Install with:\n"
+            "  pip install ultralytics onnx onnxruntime pyyaml\n"
+            f"({error})"
+        ) from error
+
+
+def _find_pt(explicit: Path | None) -> Path:
+    if explicit is not None:
+        path = explicit if explicit.is_absolute() else ROOT / explicit
+        if not path.is_file():
+            raise SystemExit(f"PT weights not found: {path}")
+        return path
+    for name in DEFAULT_PT_NAMES:
+        candidate = MODEL_DIR / name
+        if candidate.is_file():
+            return candidate
+    raise SystemExit(
+        "No .pt weights found. Place PlantDiseaseDetection.pt at:\n"
+        f"  {MODEL_DIR / 'PlantDiseaseDetection.pt'}\n"
+        "or pass --pt PATH"
+    )
+
+
+def _download_hf(repo_id: str, filename: str = "best.pt") -> Path:
+    try:
+        from huggingface_hub import hf_hub_download
+    except ImportError as error:
+        raise SystemExit(
+            "huggingface_hub is required for --hf-id. Install with:\n"
+            "  pip install huggingface_hub\n"
+            f"({error})"
+        ) from error
+    MODEL_DIR.mkdir(parents=True, exist_ok=True)
+    downloaded = hf_hub_download(repo_id=repo_id, filename=filename, local_dir=str(MODEL_DIR))
+    return Path(downloaded)
+
+
+def export_onnx(pt_path: Path, *, opset: int = 17) -> tuple[Path, Path]:
+    import yaml
+    from ultralytics import YOLO
+
+    MODEL_DIR.mkdir(parents=True, exist_ok=True)
+    print(f"Loading {pt_path} ({pt_path.stat().st_size / 1e6:.1f} MB)…")
+    model = YOLO(str(pt_path))
+    print(f"task={getattr(model, 'task', '?')} classes={len(model.names)}")
+
+    labels_path = MODEL_DIR / "labels.yaml"
+    labels = {"names": {int(k): str(v) for k, v in model.names.items()}}
+    labels_path.write_text(
+        yaml.dump(labels, sort_keys=False, allow_unicode=True),
+        encoding="utf-8",
+    )
+    print(f"Wrote {labels_path}")
+
+    print(f"Exporting ONNX opset={opset}…")
+    exported = Path(model.export(format="onnx", opset=opset, simplify=True))
+    best_onnx = MODEL_DIR / "best.onnx"
+    if exported.resolve() != best_onnx.resolve():
+        shutil.copy2(exported, best_onnx)
+    print(f"Wrote {best_onnx} ({best_onnx.stat().st_size / 1e6:.1f} MB)")
+    return best_onnx, labels_path
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--pt", type=Path, default=None, help="Path to Ultralytics .pt weights")
+    parser.add_argument("--hf-id", default=DEFAULT_HF_ID, help="Optional Hugging Face repo id")
+    parser.add_argument("--hf-file", default="best.pt", help="Filename inside the HF repo")
+    parser.add_argument("--opset", type=int, default=17)
+    args = parser.parse_args(argv)
+
+    _require_ultralytics()
+    pt_path = _download_hf(args.hf_id, args.hf_file) if args.hf_id else _find_pt(args.pt)
+    export_onnx(pt_path, opset=args.opset)
+    print("\nDone. Keep .pt/.onnx gitignored. Set VISION_BACKEND=auto and restart the API.")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

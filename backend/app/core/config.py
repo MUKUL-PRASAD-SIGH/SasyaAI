@@ -75,6 +75,11 @@ class Settings(BaseSettings):
 
     hitl_confidence_threshold: float = 0.70
 
+    # Vision pipeline. `auto` uses ONNX when models/yolov8_npss/best.onnx exists,
+    # otherwise the pixel vegetation analyser. See Docs/VISION_PIPELINE.md.
+    vision_backend: Literal["auto", "pixel", "onnx"] = "auto"
+    vision_hitl_threshold: float = 0.70
+
     @property
     def seed_data_dir(self) -> Path:
         return ROOT_DIR / "data" / "seed"

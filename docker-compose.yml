@@ -20,6 +20,8 @@ services:
     volumes:
       # Keeps local demo episodes and review decisions across container restarts.
       - ./var:/app/var
+      # Optional ONNX weights (best.onnx). Absent → pixel CV fallback.
+      - ./models:/app/models:ro
     depends_on:
       postgres:
         condition: service_healthy

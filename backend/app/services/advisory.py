@@ -661,11 +661,24 @@ class AdvisoryService:
         verification = self._verify(farmer, request, intent, draft)
         verification_failed = any(check.status == "fail" for check in verification)
         needs_hitl = verification_failed or draft.confidence < self.settings.hitl_confidence_threshold
-        image_detail = (
-            f"Attached image {request.image_id} analysed for crop symptoms."
-            if image_context
-            else "No crop image was attached to this request."
-        )
+        if image_context:
+            vision_meta = image_context.get("vision") if isinstance(image_context, dict) else None
+            if isinstance(vision_meta, dict):
+                image_detail = (
+                    f"Vision {vision_meta.get('backend', 'pixel')} "
+                    f"({vision_meta.get('model_version', 'unknown')}) "
+                    f"in {vision_meta.get('inference_ms', '?')}ms; "
+                    f"label={vision_meta.get('suspected_issue') or 'none'}; "
+                    f"confidence={vision_meta.get('confidence')}; "
+                    f"anomaly={vision_meta.get('anomaly_score')}; "
+                    f"hash={str(vision_meta.get('input_hash', ''))[:12]}"
+                )
+                if vision_meta.get("needs_officer_review"):
+                    needs_hitl = True
+            else:
+                image_detail = f"Attached image {request.image_id} analysed for crop symptoms."
+        else:
+            image_detail = "No crop image was attached to this request."
         trace = [
             TraceEvent(
                 stage="consent_preflight",
@@ -883,31 +896,27 @@ class AdvisoryService:
         return self.registered_farmers.upsert(farmer)
 
     @staticmethod
-    def analyse_crop_image(*, filename: str, payload: bytes) -> tuple[str, str | None, float]:
-        """Filename/size heuristic for demo uploads — NOT real computer vision.
+    def analyse_crop_image(
+        *,
+        filename: str,
+        payload: bytes,
+        content_type: str = "image/jpeg",
+        backend: str = "auto",
+    ) -> tuple[str, str | None, float]:
+        """Run the vision pipeline; returns the stable public tuple contract."""
 
-        Replace with a vision model or service before production diagnosis.
-        See Docs/VISION_PIPELINE.md.
-        """
-        lower_name = filename.lower()
-        size_hint = "small" if len(payload) < 40_000 else "detailed"
-        if any(term in lower_name for term in ("aphid", "pest", "insect")):
-            return (
-                f"Heuristic {size_hint} image screen suggests possible insect pressure on leaves.",
-                "aphid",
-                0.78,
+        from app.services.vision import VisionPreprocessError, analyse_crop_image
+
+        try:
+            result = analyse_crop_image(
+                payload=payload,
+                content_type=content_type,
+                filename=filename,
+                backend=backend,  # type: ignore[arg-type]
             )
-        if any(term in lower_name for term in ("spot", "blight", "rust", "leaf")):
-            return (
-                f"Heuristic {size_hint} image screen suggests leaf spotting that needs IPM confirmation.",
-                "leaf spot",
-                0.74,
-            )
-        return (
-            f"Heuristic {size_hint} image screen found no confident pest label; officer review recommended.",
-            None,
-            0.66,
-        )
+        except VisionPreprocessError as error:
+            raise ValueError(str(error)) from error
+        return result.as_tuple()
 
     def upload_farmer_image(
         self,
@@ -917,23 +926,30 @@ class AdvisoryService:
         content_type: str,
         payload: bytes,
     ) -> dict[str, object]:
+        from app.services.vision import VisionPreprocessError, analyse_crop_image
+
         if not self.has_farmer(farmer_id):
             raise FarmerNotFoundError(farmer_id)
-        if content_type not in {"image/jpeg", "image/png", "image/webp"}:
-            raise ValueError("Only JPEG, PNG, or WebP images are accepted.")
-        if len(payload) > 5_000_000:
-            raise ValueError("Image exceeds the 5 MB upload limit.")
-        # Heuristic stub — not real computer vision. See Docs/VISION_PIPELINE.md.
-        summary, suspected, confidence = self.analyse_crop_image(filename=filename, payload=payload)
+        backend = getattr(self.settings, "vision_backend", "auto")
+        try:
+            result = analyse_crop_image(
+                payload=payload,
+                content_type=content_type,
+                filename=filename,
+                backend=backend,
+            )
+        except VisionPreprocessError as error:
+            raise ValueError(str(error)) from error
         return self.images.save(
             image_id=str(uuid4()),
             farmer_id=farmer_id,
             filename=filename,
             content_type=content_type,
             payload=payload,
-            analysis_summary=summary,
-            suspected_issue=suspected,
-            confidence=confidence,
+            analysis_summary=result.analysis_summary,
+            suspected_issue=result.suspected_issue,
+            confidence=result.confidence,
+            vision_provenance=result.provenance(),
         )
 
     def list_farmer_images(self, farmer_id: str) -> list[dict[str, object]]:

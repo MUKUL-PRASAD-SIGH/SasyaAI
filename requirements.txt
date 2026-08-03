@@ -14,3 +14,8 @@ opentelemetry-sdk==1.44.0
 opentelemetry-exporter-otlp-proto-http==1.44.0
 opentelemetry-instrumentation-fastapi==0.65b0
 python-dotenv==1.2.2
+pillow==11.3.0
+numpy==2.2.6
+onnxruntime==1.22.1
+PyYAML==6.0.2
+python-multipart==0.0.20

@@ -34,7 +34,6 @@ from app.models.integration import (
     SourceProvenance,
 )
 from app.services.advisory import (
-    AdvisoryService,
     ConsentNotGrantedError,
     FarmerNotFoundError,
     HITLCaseNotPendingError,
@@ -909,28 +908,34 @@ class ProductionAdvisoryService:
         content_type: str,
         payload: bytes,
     ) -> dict[str, object]:
+        from app.services.vision import VisionPreprocessError, analyse_crop_image
+
         if self.farmer_images is None:
             raise ToolDataUnavailableError(
                 "Image uploads are available only in synthetic production mode."
             )
         if not self.has_farmer(farmer_id):
             raise FarmerNotFoundError(farmer_id)
-        if content_type not in {"image/jpeg", "image/png", "image/webp"}:
-            raise ValueError("Only JPEG, PNG, or WebP images are accepted.")
-        if len(payload) > 5_000_000:
-            raise ValueError("Image exceeds the 5 MB upload limit.")
-        summary, suspected, confidence = AdvisoryService.analyse_crop_image(
-            filename=filename, payload=payload
-        )
+        backend = getattr(self.settings, "vision_backend", "auto")
+        try:
+            result = analyse_crop_image(
+                payload=payload,
+                content_type=content_type,
+                filename=filename,
+                backend=backend,
+            )
+        except VisionPreprocessError as error:
+            raise ValueError(str(error)) from error
         return self.farmer_images.save(
             image_id=str(uuid4()),
             farmer_id=farmer_id,
             filename=filename,
             content_type=content_type,
             payload=payload,
-            analysis_summary=summary,
-            suspected_issue=suspected,
-            confidence=confidence,
+            analysis_summary=result.analysis_summary,
+            suspected_issue=result.suspected_issue,
+            confidence=result.confidence,
+            vision_provenance=result.provenance(),
         )
 
     def list_farmer_images(self, farmer_id: str) -> list[dict[str, object]]:

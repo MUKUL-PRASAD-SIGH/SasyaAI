@@ -21,7 +21,7 @@ Default `.env.example` uses **demo** mode with auth on so reviewers can exercise
 | Farmer onboarding | **Register new farmer** → session token; appears in officer/admin farmer lists by region |
 | RBAC scoping | `allowed_farmer_ids` / `allowed_regions`; officers see assigned farms only |
 | Rate limits + injection guards | Per-role sliding windows; prompt override patterns refused |
-| Image upload | Attach crop imagery to advisory queries (**heuristic analysis only — not real CV**; see [Docs/VISION_PIPELINE.md](Docs/VISION_PIPELINE.md)) |
+| Image upload | Preprocess + YOLO11 ONNX plant-disease detect when `best.onnx` present; else pixel CV. See [Docs/VISION_PIPELINE.md](Docs/VISION_PIPELINE.md) |
 | Agent thinking UI | Live workflow / thinking timeline after a run |
 | Learning from feedback | Farmer feedback feeds memory / future advice |
 | **3 roles only** | No FPO / Policy Analyst in this build |
@@ -120,6 +120,17 @@ Invoke-RestMethod -Method Post -Uri http://127.0.0.1:8000/api/v1/query `
   -Headers @{"X-API-Key" = "farmer-demo-key-0123456789abcdef"} `
   -ContentType "application/json" -Body $body
 ```
+
+### Optional: plant-disease ONNX vision
+
+Large weights stay **out of git**. If you have `PlantDiseaseDetection.pt`:
+
+```powershell
+pip install ultralytics onnx onnxruntime pyyaml
+python scripts/setup_vision.py --pt models/yolov8_npss/PlantDiseaseDetection.pt
+```
+
+This creates `models/yolov8_npss/best.onnx` + `labels.yaml`. With `VISION_BACKEND=auto` the API uses YOLO detect when `best.onnx` exists; otherwise pixel CV. **Do not push** `.pt` / `.onnx` to GitHub. Details: [Docs/VISION_PIPELINE.md](Docs/VISION_PIPELINE.md).
 
 ---
 

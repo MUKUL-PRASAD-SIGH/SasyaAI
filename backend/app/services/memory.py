@@ -584,10 +584,11 @@ class FarmerImageStore(_JsonListStore):
         analysis_summary: str,
         suspected_issue: str | None,
         confidence: float,
+        vision_provenance: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         suffix = Path(filename).suffix.lower() or ".bin"
         target = self.image_dir / f"{image_id}{suffix}"
-        record = {
+        record: dict[str, Any] = {
             "image_id": image_id,
             "farmer_id": farmer_id,
             "filename": filename,
@@ -598,6 +599,8 @@ class FarmerImageStore(_JsonListStore):
             "suspected_issue": suspected_issue,
             "confidence": confidence,
         }
+        if vision_provenance:
+            record["vision"] = vision_provenance
         with self._locked_transaction():
             try:
                 target.write_bytes(payload)

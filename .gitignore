@@ -58,7 +58,7 @@ env/
 # ─────────────────────────────────────────────────────────────────
 # 🤖 AI / ML MODEL ARTIFACTS
 #    models/
-#    ├── yolov8_npss/        → Fine-tuned YOLOv8 (pest detection)
+#    ├── yolov8_npss/        → YOLO11 plant-disease ONNX (local only)
 #    ├── efficientnet_b4/    → Disease severity grading
 #    ├── lstm_yield/         → Time-series yield forecasting
 #    ├── tft_weather/        → Temporal Fusion Transformer
@@ -68,9 +68,9 @@ env/
 #    ├── embeddings/         → sentence-transformers + FAISS index
 #    └── llm_gguf/           → Quantized Llama 3.2 for edge
 #
-#    Vision status: crop upload works; analysis is a filename/size
-#    heuristic stub — NOT real CV. See Docs/VISION_PIPELINE.md before
-#    adding weights, NPSS caches, or vision-agent inference artifacts.
+#    Vision: preprocess + pixel CV always; ONNX when best.onnx exists.
+#    Never commit .pt/.onnx (100MB+). See Docs/VISION_PIPELINE.md and
+#    python scripts/setup_vision.py
 # ─────────────────────────────────────────────────────────────────
 *.pt
 *.pth
@@ -85,7 +85,15 @@ env/
 *.bin
 # This is intentionally rooted: application modules such as
 # backend/app/models/ are source code and must remain trackable.
-/models/
+# Track only small docs/labels under models/yolov8_npss — never weight files.
+/models/**
+!/models/yolov8_npss/
+!/models/yolov8_npss/README.md
+!/models/yolov8_npss/labels.yaml
+/models/yolov8_npss/*.pt
+/models/yolov8_npss/*.onnx
+/models/yolov8_npss/**/*.pt
+/models/yolov8_npss/**/*.onnx
 checkpoints/
 runs/
 wandb/
