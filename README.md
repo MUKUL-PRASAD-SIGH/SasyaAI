@@ -1,81 +1,81 @@
 # SasyaAI
 
-Safety-gated agricultural advisory for Indian farmers — digital twin, grounded retrieval, specialised agents, deterministic verification, and human review.
+Safety-gated agricultural advisory for Indian farmers — the current branch ships a working demo stack with a FastAPI backend, a Vite dashboard, role-based auth, farmer onboarding, crop-image upload, advisory workflow, HITL review, and runtime/audit endpoints. The implementation is demo-first and synthetic, but the consent gates, verification checks, and reviewer flows are wired end to end.
 
 | Mode | What it is |
 |---|---|
-| `RUNTIME_MODE=demo` | Local, credentialed workflow over synthetic seed data. Not a live advisory service. |
+| `RUNTIME_MODE=demo` | Local, credentialed workflow over synthetic seed data. Fastest path for reviewers. |
 | `RUNTIME_MODE=production` + `PRODUCTION_DATA_MODE=synthetic` | Real auth, PostgreSQL, Qdrant, Gemini — labelled synthetic corpus only. |
 | `RUNTIME_MODE=production` + `PRODUCTION_DATA_MODE=live` | AgriStack-ready path after gateway approval. |
 
-Default `.env.example` uses **demo** mode with auth on so reviewers can exercise RBAC immediately.
+Default [`.env.example`](.env.example) uses **demo** mode with auth on so reviewers can exercise RBAC immediately.
 
 ---
 
-## What's new (hackathon)
+## What's implemented now
 
-| Feature | Notes |
+| Feature | Current state |
 |---|---|
-| Role-based Sign-in | Farmer / Extension Officer / System Admin gate on first screen |
-| Email OTP + API key | Either method; OTP returns `otp_demo_code` in development |
-| Farmer onboarding | **Register new farmer** → session token; appears in officer/admin farmer lists by region |
-| RBAC scoping | `allowed_farmer_ids` / `allowed_regions`; officers see assigned farms only |
-| Rate limits + injection guards | Per-role sliding windows; prompt override patterns refused |
-| Image upload | Preprocess + YOLO11 ONNX plant-disease detect when `best.onnx` present; else pixel CV. See [Docs/VISION_PIPELINE.md](Docs/VISION_PIPELINE.md) |
-| Agent thinking UI | Live workflow / thinking timeline after a run |
-| Learning from feedback | Farmer feedback feeds memory / future advice |
-| **3 roles only** | No FPO / Policy Analyst in this build |
+| **Role-based sign-in** | Farmer, Extension Officer, and System Admin roles are available from the dashboard and API auth flow |
+| **Farmer passwordless login** | Email OTP, **Continue with Google (demo)**, and **Register new farmer** are wired in the current build |
+| **Farmer onboarding** | New farmers can be registered, issued a scoped session, and assigned to the regional officer desk |
+| **RBAC desk scoping** | Farmers see their own farm, officers see region-assigned farms, and admins view the wider runtime |
+| **Inline crop image upload** | Upload works from the advisory flow and the Images tab without manual image-ID entry |
+| **Vision pipeline** | The API supports preprocess + pixel CV, with optional ONNX vision when weights are present ([Docs/VISION_PIPELINE.md](Docs/VISION_PIPELINE.md)) |
+| **Agent thinking UI** | The workflow timeline and agent-run cards are displayed after a query run |
+| **HITL + feedback** | Officer review queue, decision handling, and feedback capture are implemented in the demo runtime |
+| **Safety controls** | Per-role rate limits, prompt-injection sanitisation, consent preflight, and deterministic verification are active |
+| **Roles in this build** | The shipped demo currently uses the three roles above; no FPO or Policy Analyst role is included |
 
 ---
 
-## Quick start
+## How to use locally (for others)
 
-**Prereqs:** Docker Desktop (Compose route) · Python 3.10+ · Node.js 22+ (local frontend only)
+### Prerequisites
 
-### 1. Clone & env
+- **Docker Desktop** (recommended), or
+- **Python 3.10+** and **Node.js 22+** for a local Vite + uvicorn setup
+- Windows PowerShell examples below; Linux/macOS: use `cp` instead of `Copy-Item`, and `source .venv/bin/activate`
+
+### Option A — Docker Compose (recommended)
 
 ```powershell
+git clone <this-repo-url> SasyaAI
 cd SasyaAI
 Copy-Item .env.example .env
 Copy-Item REVIEWER_CREDENTIALS.example.md REVIEWER_CREDENTIALS.md
-```
-
-`REVIEWER_CREDENTIALS.md` and `.env` are gitignored — never commit them.
-
-Optional: set `GEMINI_API_KEY` in `.env` for real LLM drafts in production mode.
-
-### 2A. Docker Compose (recommended for reviewers)
-
-```powershell
 docker compose up --build
 ```
 
 | Service | URL |
 |---|---|
 | Dashboard | http://127.0.0.1:5173 |
-| API + docs | http://127.0.0.1:8000 · http://127.0.0.1:8000/docs |
+| API + OpenAPI | http://127.0.0.1:8000 · http://127.0.0.1:8000/docs |
 
-Starts dashboard, API, PostgreSQL, and Qdrant.
+Starts dashboard, API, PostgreSQL, and Qdrant. Compose mounts `./models` into the API so optional ONNX weights are picked up automatically.
 
-**Frontend changes in Docker:** the dashboard image is baked at build time. After editing `frontend/`, rebuild:
+**After code changes**
 
 ```powershell
+# Frontend only
 docker compose up -d --build dashboard
-```
 
-Then hard-refresh the browser.
+# Backend / API routes / vision
+docker compose up -d --build api
 
-After backend onboarding or API route changes, rebuild the **api** service as well — rebuilding **dashboard** alone leaves stale routes in the running API container:
-
-```powershell
+# Both
 docker compose up -d --build api dashboard
 ```
 
-### 2B. Local API + Vite (dev)
+Hard-refresh the browser after a dashboard rebuild.
+
+### Option B — Local API + Vite (dev)
 
 **Terminal 1 — API**
 
 ```powershell
+cd SasyaAI
+Copy-Item .env.example .env
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install -r requirements-dev.txt
@@ -96,18 +96,69 @@ npm run dev
 | Vite dashboard | http://127.0.0.1:5173 |
 | API | http://127.0.0.1:8000 |
 
-Local Vite proxies to `VITE_API_BASE_URL=http://127.0.0.1:8000` (see `frontend/.env.example`).
+Vite proxies `/api` and `/health` to port 8000 (see [`frontend/vite.config.ts`](frontend/vite.config.ts)). Keep `RUNTIME_MODE=demo` in `.env` unless you have Postgres + Qdrant running.
+
+### First login walkthrough
+
+1. Open http://127.0.0.1:5173
+2. Pick a role:
+   - **Farmer** — Email OTP, Continue with Google (demo), or **Register new farmer**
+   - **Officer / Admin** — Email OTP or Advanced API key
+3. Demo credentials (also in `.env` as `AUTH_PRINCIPALS_JSON`):
+
+| Role | API key | Email (OTP) |
+|---|---|---|
+| Farmer | `farmer-demo-key-0123456789abcdef` | `asha.patil@demo.sasyaai.local` |
+| Officer (West) | `officer-west-demo-key-0123456789ab` | `officer.west@demo.sasyaai.local` |
+| Officer (South) | `officer-south-demo-key-0123456789a` | `officer.south@demo.sasyaai.local` |
+| System Admin | `admin-demo-key-0123456789abcdef0` | `admin@demo.sasyaai.local` |
+
+4. OTP: Request OTP → copy `otp_demo_code` from the UI / API response → Sign in  
+5. New farmers: **Register new farmer** first; then that email can OTP / Google-demo login
+
+Copy [`REVIEWER_CREDENTIALS.example.md`](REVIEWER_CREDENTIALS.example.md) → `REVIEWER_CREDENTIALS.md` for a local cheat-sheet (gitignored).
+
+### Try the product
+
+| Role | What to do |
+|---|---|
+| **Farmer** | Register or sign in → **Ask advisory** → type a question → optional **Crop image** upload → **Run advisory workflow** → watch **Agents** |
+| **Extension Officer** | Sign in (West/South) → **Assigned farmers** (region-scoped) → **HITL queue** → approve / reject |
+| **System Admin** | Sign in → all farmers, runtime/health, audit, full HITL |
+
+### Optional — plant-disease ONNX vision
+
+Large weights stay **out of git** (`.pt` / `.onnx` are gitignored). Without weights the API still runs **pixel CV**.
+
+```powershell
+# 1) Place Ultralytics weights locally, e.g.:
+#    models/yolov8_npss/PlantDiseaseDetection.pt
+
+# 2) Export ONNX + labels
+pip install ultralytics onnx onnxruntime pyyaml
+python scripts/setup_vision.py --pt models/yolov8_npss/PlantDiseaseDetection.pt
+
+# 3) Ensure .env has:
+#    VISION_BACKEND=auto
+#    VISION_HITL_THRESHOLD=0.70
+
+# 4) Restart API (Docker remounts ./models automatically)
+docker compose up -d --build api
+```
+
+Creates `models/yolov8_npss/best.onnx` + `labels.yaml`. **Do not push** weight files to GitHub. Details: [Docs/VISION_PIPELINE.md](Docs/VISION_PIPELINE.md).
 
 ### Smoke checks
 
 ```powershell
 python -m pytest -q
+python -m pytest tests/vision -q
 python -m ruff check backend tests scripts
-# frontend (from frontend/)
+# from frontend/
 npm test
 ```
 
-### Example advisory call
+### Example advisory API call
 
 ```powershell
 $body = @{
@@ -121,39 +172,19 @@ Invoke-RestMethod -Method Post -Uri http://127.0.0.1:8000/api/v1/query `
   -ContentType "application/json" -Body $body
 ```
 
-### Optional: plant-disease ONNX vision
+Registered farmers can use the session token from signup as `Authorization: Bearer <token>` or `X-API-Key: <token>` instead of the demo farmer key.
 
-Large weights stay **out of git**. If you have `PlantDiseaseDetection.pt`:
+### Common pitfalls
 
-```powershell
-pip install ultralytics onnx onnxruntime pyyaml
-python scripts/setup_vision.py --pt models/yolov8_npss/PlantDiseaseDetection.pt
-```
-
-This creates `models/yolov8_npss/best.onnx` + `labels.yaml`. With `VISION_BACKEND=auto` the API uses YOLO detect when `best.onnx` exists; otherwise pixel CV. **Do not push** `.pt` / `.onnx` to GitHub. Details: [Docs/VISION_PIPELINE.md](Docs/VISION_PIPELINE.md).
-
----
-
-## Hands-on: three roles
-
-Open **http://127.0.0.1:5173** → pick a role → **API key** or **Email OTP**.
-
-| Role | API key | Email (OTP) |
-|---|---|---|
-| Farmer | `farmer-demo-key-0123456789abcdef` | `asha.patil@demo.sasyaai.local` |
-| Officer (West) | `officer-west-demo-key-0123456789ab` | `officer.west@demo.sasyaai.local` |
-| Officer (South) | `officer-south-demo-key-0123456789a` | `officer.south@demo.sasyaai.local` |
-| System Admin | `admin-demo-key-0123456789abcdef0` | `admin@demo.sasyaai.local` |
-
-OTP: choose Email OTP → submit email → use `otp_demo_code` from the API response → continue.
-
-| Role | Walkthrough |
+| Symptom | Fix |
 |---|---|
-| **Farmer** | Sign in → ask an advisory question → **Images** tab to upload → attach image ID on query → watch **Agents / thinking** timeline → optional **Register new farmer** on login (new profile lands in regional officer/admin dropdowns). |
-| **Extension Officer** | Sign in (West or South) → farmer list is region-scoped only → open **HITL queue** → approve / reject pending cases. |
-| **System Admin** | Sign in → all farmers visible → runtime/health, audit, sync/config actions, full HITL view. |
+| `405` on `/api/v1/farmers/register` | Rebuild **api**, not only dashboard |
+| Image upload `500` / multipart error | Ensure `python-multipart` is installed (in `requirements.txt`); rebuild api |
+| Vision always pixel, never ONNX | Confirm `models/yolov8_npss/best.onnx` exists and `VISION_BACKEND=auto` |
+| Empty farmer list after register | Sign out/in; farmer desk is scoped to `allowed_farmer_ids` |
+| Production mode won't start | Fill required `.env` keys or switch to `RUNTIME_MODE=demo` |
 
-Full cheat-sheet: `REVIEWER_CREDENTIALS.md` (after copy). Same keys live in `.env` as `AUTH_PRINCIPALS_JSON`.
+Never commit `.env`, `REVIEWER_CREDENTIALS.md`, `var/`, or model weight files.
 
 ---
 
@@ -163,7 +194,7 @@ Thin local auth adapter for demos — not a production IdP.
 
 | Topic | Detail |
 |---|---|
-| `AUTH_REQUIRED` + API keys | Principals: `subject`, `roles`, optional `allowed_farmer_ids` / `allowed_regions` |
+| `AUTH_REQUIRED` + session / API keys | Principals: `subject`, `roles`, optional `allowed_farmer_ids` / `allowed_regions` |
 | Demo corpus | ~18 synthetic farmers — contract/UI review only |
 | Production path | Replace keys with JWT/OIDC; Google OAuth stubbed (`GOOGLE_OAUTH_ENABLED`) |
 
@@ -180,24 +211,26 @@ Also in-repo: prompt-injection sanitisation, SQLAlchemy bound params, per-role r
 ## How an answer is produced
 
 1. Intent router → crop / pest / scheme specialist  
-2. Tools + state-filtered Qdrant memory (farmer-scoped episodes)  
-3. Gemini drafts with evidence IDs → reflection check  
-4. Deterministic verifier (weather, dose, confidence, synthetic boundaries)  
-5. Deliver or durable HITL case in PostgreSQL  
+2. Optional crop-image vision (ONNX or pixel) attached as evidence context  
+3. Tools + state-filtered Qdrant memory (farmer-scoped episodes)  
+4. Gemini drafts with evidence IDs → reflection check  
+5. Deterministic verifier (weather, dose, confidence, synthetic boundaries)  
+6. Deliver or durable HITL case  
 
-Gemini is never the source of truth. Qdrant = semantic memory; PostgreSQL = profiles, consent, episodes, HITL, audit. Production config: [Production Runtime](Docs/PRODUCTION_RUNTIME.md).
+Gemini is never the source of truth. Qdrant = semantic memory; PostgreSQL = profiles, consent, episodes, HITL, audit (production). Config: [Production Runtime](Docs/PRODUCTION_RUNTIME.md).
 
 ---
 
 ## Repository layout
 
 ```text
-backend/     FastAPI, contracts, workflow, adapters
-data/seed/   Synthetic farmers + knowledge
-Docs/        Architecture, API, security, deployment
-frontend/    Vite/React operations dashboard
-scripts/     Evaluation-corpus tooling
-tests/       API + workflow regression
+backend/          FastAPI, contracts, workflow, vision, adapters
+data/seed/        Synthetic farmers + knowledge
+Docs/             Architecture, API, security, vision, deployment
+frontend/         Vite/React role-scoped dashboard
+models/yolov8_npss/  labels.yaml + README (weights gitignored)
+scripts/          setup_vision.py, corpus tooling
+tests/            API + vision regression
 ```
 
 ---
@@ -212,6 +245,7 @@ Seed data is **synthetic**. Do not commit real farmer PII, credentials, or Aadha
 
 | Doc | Link |
 |---|---|
+| Vision pipeline | [VISION_PIPELINE](Docs/VISION_PIPELINE.md) |
 | Master plan | [MASTER_PLAN](Docs/MASTER_PLAN.md) |
 | Architecture | [ARCHITECTURE](Docs/ARCHITECTURE.md) |
 | API | [API](Docs/API.md) |

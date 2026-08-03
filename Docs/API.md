@@ -10,6 +10,18 @@ and farmer assignments are enforced, protected actions are rate-limited, and
 data-minimised audit metadata is retained locally. This API-key adapter is a
 testable gateway boundary, not a replacement for production OAuth2/OIDC/JWT.
 
+## Implemented endpoint groups
+
+The current API surface includes:
+
+- auth endpoints for login, logout, Google-demo login, and session inspection
+- advisory endpoints for query submission and knowledge stats
+- farmer lifecycle endpoints for registration, image upload/listing, feedback, profile retrieval, and runtime-data deletion
+- HITL endpoints for listing review cases and recording a decision
+- audit and runtime endpoints for health and admin visibility
+
+The sections below capture the implemented contract and the guarded production-only extensions.
+
 ## Conventions
 
 - JSON request and response bodies use UTF-8.

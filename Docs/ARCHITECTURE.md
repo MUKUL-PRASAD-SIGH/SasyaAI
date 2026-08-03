@@ -9,7 +9,13 @@ SasyaAI has two deliberately separate shapes:
 
 The demonstrator is an architectural thin slice of the production target, not a mock that bypasses safety controls.
 
-## 2. Logical system view
+## 2. Current implementation snapshot
+
+The current repository already contains a working demo implementation rather than a stubbed prototype. The backend entrypoint in [backend/app/main.py](../backend/app/main.py) wires the FastAPI routes for auth, farmer onboarding, advisory queries, image upload, feedback, HITL review, runtime health, audit, and deletion requests. The dashboard in [frontend/src/App.tsx](../frontend/src/App.tsx) exposes role-scoped views for farmers, officers, and admins, while [backend/app/services/advisory.py](../backend/app/services/advisory.py) and [backend/app/services/security.py](../backend/app/services/security.py) enforce consent preflight, prompt-injection guardrails, deterministic verification, and scoped memory access.
+
+The production path remains explicitly guarded: it is available in code and configuration, but the local demo runtime is the verified default for review and demonstration.
+
+## 3. Logical system view
 
 ```mermaid
 flowchart LR
@@ -35,7 +41,7 @@ flowchart LR
     Gateway <--> Sources[AgriStack, IMD, eNAM, Bhuvan, schemes]
 ```
 
-## 3. Demonstrator components
+## 4. Demonstrator components
 
 | Component | Current implementation | Production replacement or extension |
 |---|---|---|
@@ -49,7 +55,7 @@ flowchart LR
 | Verification | Deterministic demo water, cost, weather, scheme, and dose checks | Versioned rules engine, authoritative data freshness and audit evidence |
 | HITL | Runtime JSON review queue | Implemented PostgreSQL queue, row-locked decisions, and role-protected operations UI |
 
-## 4. Mandatory request flow
+## 5. Mandatory request flow
 
 ```mermaid
 sequenceDiagram
@@ -78,7 +84,7 @@ sequenceDiagram
     end
 ```
 
-## 5. Data ownership and boundaries
+## 6. Data ownership and boundaries
 
 Only the Memory Agent boundary may persist twin state or advisory episodes. Other agents are stateless and return typed outputs. This makes retries safe and prevents a failed draft from changing farmer state.
 
@@ -90,7 +96,7 @@ Only the Memory Agent boundary may persist twin state or advisory episodes. Othe
 | Episodic memory | Memory Agent | Advice, outcomes, review state | Ignored runtime JSON | Qdrant filtered by `farmer_id` |
 | Audit log | Platform security boundary | Access, decisions, verification evidence | Application trace | Immutable, access-controlled log |
 
-## 6. Data model and collection contracts
+## 7. Data model and collection contracts
 
 `FarmerTwin` is keyed by a stable AgriStack farmer identifier and contains:
 
@@ -102,7 +108,7 @@ Only the Memory Agent boundary may persist twin state or advisory episodes. Othe
 
 The first Qdrant collections are `crop_kb`, `pest_kb`, `scheme_kb`, and `farmer_memory`. Retrieval must combine vector similarity with mandatory payload filters, especially `farmer_id` for episodes and state/season/crop for policy or agronomy facts.
 
-## 7. Service interfaces
+## 8. Service interfaces
 
 Production services communicate through typed HTTP or event contracts. A task must include `request_id`, `farmer_id`, source, timestamp, data freshness, consent context, confidence, and verification requirement. Avoid free-text inter-agent control messages.
 
@@ -114,7 +120,7 @@ Production services communicate through typed HTTP or event contracts. A task mu
 | Alert pipeline | Asynchronous Kafka event | Weather, market, or monitoring trigger |
 | Review workflow | Durable queue plus REST | Officer approve, edit, reject, and audit |
 
-## 8. Security architecture
+## 9. Security architecture
 
 1. Verify consent and role before every farmer-data access. The local adapter is fixture-only and fails closed; it is not an authentication or live-consent substitute.
 2. Enforce least privilege and typed service-to-service identity.
@@ -126,7 +132,7 @@ Production services communicate through typed HTTP or event contracts. A task mu
 
 The full consent, threat, RBAC, incident, and retention specifications are in [SECURITY.md](SECURITY.md).
 
-## 9. Deployment progression
+## 10. Deployment progression
 
 | Stage | Runtime | Data | Operational minimum |
 |---|---|---|---|
@@ -135,7 +141,7 @@ The full consent, threat, RBAC, incident, and retention specifications are in [S
 | Pilot | Indian-cloud staging | Governed pilot records | RBAC, auditing, monitoring, backup/restore drills |
 | Production | Kubernetes with autoscaling | Managed encrypted stores | CI/CD gates, observability, incident response, DR |
 
-## 10. Repository boundaries
+## 11. Repository boundaries
 
 ```text
 backend/app/       API, domain contracts, workflow, and adapters

@@ -1,5 +1,15 @@
 # SasyaAI Development Guide
 
+## Current implementation footprint
+
+The working implementation in this workspace already includes:
+
+- a FastAPI entrypoint in [backend/app/main.py](../backend/app/main.py) for auth, onboarding, advisory queries, image upload, feedback, HITL review, audit, and runtime deletion flows
+- a Vite/React dashboard in [frontend/src/App.tsx](../frontend/src/App.tsx) with farmer, officer, and admin views
+- deterministic advisory and safety logic in [backend/app/services/advisory.py](../backend/app/services/advisory.py) and [backend/app/services/security.py](../backend/app/services/security.py)
+
+The local demo remains the best place to validate behaviour before enabling production-only integrations.
+
 ## Local setup
 
 Use Python 3.10+ for FastAPI and Node.js 22+ for the officer
