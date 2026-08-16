@@ -1,11 +1,13 @@
 [tool.pytest.ini_options]
 pythonpath = ["backend"]
 testpaths = ["tests"]
-asyncio_default_fixture_loop_scope = "function"
 
 [tool.ruff]
 line-length = 100
 target-version = "py310"
+# `app` lives under backend/, which pytest adds via pythonpath; mirror that here so
+# ruff's isort treats it as first-party instead of a third-party package.
+src = [".", "backend"]
 
 [tool.ruff.lint]
 select = ["E4", "E7", "E9", "F", "I", "UP"]

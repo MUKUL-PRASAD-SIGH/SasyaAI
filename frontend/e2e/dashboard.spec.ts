@@ -14,7 +14,7 @@ test("the first screen is the role-based login page", async ({ page }) => {
   await expect(page.getByRole("radio", { name: /Farmer/i })).toBeVisible();
   await expect(page.getByRole("radio", { name: /Extension Officer/i })).toBeVisible();
   await expect(page.getByRole("radio", { name: /System Admin/i })).toBeVisible();
-  await expect(page.getByLabelText("Email")).toBeVisible();
+  await expect(page.getByLabel("Email")).toBeVisible();
   await expect(page.getByRole("button", { name: /Continue with Google/i })).toBeVisible();
   await expect(page.getByText(/Advanced \/ reviewer API key/i)).toBeVisible();
   await expect(page.getByText("Operator access")).toHaveCount(0);
@@ -27,7 +27,8 @@ test("local bypass enters the authenticated desk and sign-out returns to login",
   page,
 }) => {
   await signInWithBypass(page);
-  await expect(page.getByText("Ask, upload, and follow the agents.")).toBeVisible();
+  // The bypass principal holds every role, so the desk resolves to the admin view.
+  await expect(page.getByText("Inspect runtime, farmers, and audit trails.")).toBeVisible();
 
   await page.getByRole("button", { name: "Sign out" }).click();
   await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible();
@@ -55,7 +56,9 @@ test("a delivered crop plan exposes the coordinated agent run", async ({ page })
   await signInWithBypass(page);
   await page.getByRole("button", { name: "Run advisory workflow" }).click();
 
-  await expect(page.getByText("Root Manager", { exact: true })).toBeVisible();
-  await expect(page.getByText("Safety Verifier", { exact: true })).toBeVisible();
-  await expect(page.getByText("Delivered after checks", { exact: true })).toBeVisible();
+  // Agent names also render in the review queue, so assert against the advisory result.
+  const advisoryResult = page.getByLabel("Advisory result");
+  await expect(advisoryResult.getByText("Root Manager", { exact: true })).toBeVisible();
+  await expect(advisoryResult.getByText("Safety Verifier", { exact: true })).toBeVisible();
+  await expect(advisoryResult.getByText("Delivered after checks", { exact: true })).toBeVisible();
 });

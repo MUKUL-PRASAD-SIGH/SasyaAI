@@ -6,12 +6,13 @@ from pathlib import Path
 from shutil import copytree
 
 import pytest
+from fastapi.testclient import TestClient
+
 from app.core.config import Settings
 from app.main import create_app
 from app.models.integration import ConsentScope
 from app.services.consent import ConsentAdapterUnavailableError, SyntheticConsentAdapter
 from app.services.memory import SeedDataError, SeedRepository
-from fastapi.testclient import TestClient
 
 
 def client_for(tmp_path):

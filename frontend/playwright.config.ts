@@ -1,5 +1,8 @@
 import { defineConfig, devices } from "@playwright/test";
 
+const webPort = process.env.SASYAAI_WEB_PORT ?? "5173";
+const apiPort = process.env.SASYAAI_API_PORT ?? "8000";
+
 export default defineConfig({
   testDir: "./e2e",
   fullyParallel: false,
@@ -7,15 +10,15 @@ export default defineConfig({
   retries: process.env.CI ? 2 : 0,
   reporter: process.env.CI ? "github" : "list",
   use: {
-    baseURL: "http://127.0.0.1:5173",
+    baseURL: `http://127.0.0.1:${webPort}`,
     trace: "retain-on-failure",
   },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
   webServer: [
     {
-      command: "python -m uvicorn app.main:app --app-dir backend --host 127.0.0.1 --port 8000",
+      command: `python -m uvicorn app.main:app --app-dir backend --host 127.0.0.1 --port ${apiPort}`,
       cwd: "..",
-      url: "http://127.0.0.1:8000/health",
+      url: `http://127.0.0.1:${apiPort}/health`,
       env: {
         ...process.env,
         APP_ENVIRONMENT: "development",
@@ -26,8 +29,8 @@ export default defineConfig({
       reuseExistingServer: !process.env.CI,
     },
     {
-      command: "npm run dev -- --host 127.0.0.1",
-      url: "http://127.0.0.1:5173",
+      command: `npm run dev -- --host 127.0.0.1 --port ${webPort}`,
+      url: `http://127.0.0.1:${webPort}`,
       reuseExistingServer: !process.env.CI,
     },
   ],

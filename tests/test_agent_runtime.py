@@ -1,9 +1,9 @@
 import json
 from pathlib import Path
 
-from app.main import create_app
 from fastapi.testclient import TestClient
 
+from app.main import create_app
 from scripts.ingest_reviewed_corpus import validated_documents
 
 

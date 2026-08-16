@@ -3,13 +3,14 @@ from types import SimpleNamespace
 
 import httpx
 import pytest
+from fastembed import TextEmbedding
+
 from app.core.config import Settings
 from app.main import create_app
 from app.models.advisory import Intent, KnowledgeHit
 from app.services.connectors import SyntheticProductionDataGateway
 from app.services.llm import AgentPlan, GeminiProvider, LLMRequest
 from app.services.production import ProductionAdvisoryService
-from fastembed import TextEmbedding
 
 
 def test_production_mode_refuses_to_start_with_missing_live_dependencies(tmp_path):
