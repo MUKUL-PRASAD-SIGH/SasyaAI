@@ -24,6 +24,7 @@ class VisionAnalysisResult:
     quality_flags: tuple[str, ...] = ()
     needs_officer_review: bool = False
     backend: str = "pixel"
+    specialists: dict[str, dict[str, Any]] = field(default_factory=dict)
     extras: dict[str, Any] = field(default_factory=dict)
 
     def as_tuple(self) -> tuple[str, str | None, float]:

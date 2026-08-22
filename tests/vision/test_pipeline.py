@@ -7,7 +7,9 @@ import io
 import pytest
 from PIL import Image
 
+import app.services.vision.pipeline as vision_pipeline
 from app.services.vision import VisionPreprocessError, analyse_crop_image
+from app.services.vision.onnx_backend import OnnxInference
 from app.services.vision.pixel_analyser import analyse_pixels
 from app.services.vision.preprocess import preprocess_crop_image
 
@@ -126,3 +128,69 @@ def test_analyse_crop_image_returns_provenance_for_spotted_leaf():
     provenance = result.provenance()
     assert provenance["model_version"]
     assert "pixel_metrics" in provenance["extras"]
+
+
+def test_auto_runs_and_fuses_both_onnx_specialists(monkeypatch):
+    calls: list[str] = []
+
+    monkeypatch.setattr(vision_pipeline, "onnx_weights_available", lambda _path: True)
+
+    def fake_detector(_image, *, model):
+        calls.append(model.kind)
+        label, confidence = (
+            ("Tomato___Early_blight", 0.91)
+            if model.kind == "disease"
+            else ("whitefly", 0.83)
+        )
+        return OnnxInference(
+            label=label,
+            confidence=confidence,
+            summary=f"{model.display_name} detected {label}.",
+            available=True,
+            extras={"detections": [{"label": label, "confidence": confidence}]},
+        )
+
+    monkeypatch.setattr(vision_pipeline, "run_onnx_detector", fake_detector)
+    result = vision_pipeline.analyse_crop_image(
+        payload=_spotted_leaf(),
+        content_type="image/png",
+        backend="auto",
+    )
+
+    assert calls == ["disease", "pest"]
+    assert result.backend == "onnx"
+    assert result.model_version == "yolo-dual-specialist-onnx-v1"
+    assert result.suspected_issue == "Tomato___Early_blight + whitefly"
+    assert result.specialists["disease"]["label"] == "Tomato___Early_blight"
+    assert result.specialists["pest"]["label"] == "whitefly"
+    assert "Disease specialist" in result.analysis_summary
+    assert "Pest specialist" in result.analysis_summary
+    assert len(result.as_tuple()) == 3
+
+
+def test_auto_uses_pixel_only_when_no_onnx_specialist_exists(monkeypatch):
+    monkeypatch.setattr(vision_pipeline, "onnx_weights_available", lambda _path: False)
+
+    def unexpected_detector(*_args, **_kwargs):
+        raise AssertionError("ONNX detector must not run without weights")
+
+    monkeypatch.setattr(vision_pipeline, "run_onnx_detector", unexpected_detector)
+    result = vision_pipeline.analyse_crop_image(
+        payload=_spotted_leaf(),
+        content_type="image/png",
+        backend="auto",
+    )
+
+    assert result.backend == "pixel"
+    assert result.suspected_issue == "leaf spot"
+    assert result.specialists["disease"]["available"] is False
+
+
+def test_explicit_onnx_fails_when_no_specialist_is_installed(monkeypatch):
+    monkeypatch.setattr(vision_pipeline, "onnx_weights_available", lambda _path: False)
+    with pytest.raises(VisionPreprocessError, match="no installed ONNX specialist"):
+        vision_pipeline.analyse_crop_image(
+            payload=_green_leaf(),
+            content_type="image/png",
+            backend="onnx",
+        )
