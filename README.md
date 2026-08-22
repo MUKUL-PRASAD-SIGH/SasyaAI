@@ -49,8 +49,8 @@ docker compose up --build
 
 | Service | URL |
 |---|---|
-| Dashboard | http://127.0.0.1:5173 |
-| API + OpenAPI | http://127.0.0.1:8000 · http://127.0.0.1:8000/docs |
+| Dashboard | http://127.0.0.1:5174 |
+| API + OpenAPI | http://127.0.0.1:8001 · http://127.0.0.1:8001/docs |
 
 Starts dashboard, API, PostgreSQL, and Qdrant. Compose mounts `./models` into the API so optional ONNX weights are picked up automatically.
 
@@ -126,17 +126,19 @@ Copy [`REVIEWER_CREDENTIALS.example.md`](REVIEWER_CREDENTIALS.example.md) → `R
 | **Extension Officer** | Sign in (West/South) → **Assigned farmers** (region-scoped) → **HITL queue** → approve / reject |
 | **System Admin** | Sign in → all farmers, runtime/health, audit, full HITL |
 
-### Optional — plant-disease ONNX vision
+### Optional — disease + pest ONNX vision
 
 Large weights stay **out of git** (`.pt` / `.onnx` are gitignored). Without weights the API still runs **pixel CV**.
 
 ```powershell
 # 1) Place Ultralytics weights locally, e.g.:
 #    models/yolov8_npss/PlantDiseaseDetection.pt
+#    models/pest/best.pt
 
 # 2) Export ONNX + labels
 pip install ultralytics onnx onnxruntime pyyaml
 python scripts/setup_vision.py --pt models/yolov8_npss/PlantDiseaseDetection.pt
+python scripts/setup_vision.py --model pest --pt models/pest/best.pt
 
 # 3) Ensure .env has:
 #    VISION_BACKEND=auto
@@ -146,7 +148,7 @@ python scripts/setup_vision.py --pt models/yolov8_npss/PlantDiseaseDetection.pt
 docker compose up -d --build api
 ```
 
-Creates `models/yolov8_npss/best.onnx` + `labels.yaml`. **Do not push** weight files to GitHub. Details: [Docs/VISION_PIPELINE.md](Docs/VISION_PIPELINE.md).
+Creates each specialist's `best.onnx` + `labels.yaml`. In `auto`, both installed specialists run; if neither can run, pixel CV remains the fallback. **Do not push** weight files to GitHub. Details: [Docs/VISION_PIPELINE.md](Docs/VISION_PIPELINE.md).
 
 ### Smoke checks
 
@@ -180,7 +182,7 @@ Registered farmers can use the session token from signup as `Authorization: Bear
 |---|---|
 | `405` on `/api/v1/farmers/register` | Rebuild **api**, not only dashboard |
 | Image upload `500` / multipart error | Ensure `python-multipart` is installed (in `requirements.txt`); rebuild api |
-| Vision always pixel, never ONNX | Confirm `models/yolov8_npss/best.onnx` exists and `VISION_BACKEND=auto` |
+| Vision always pixel, never ONNX | Confirm at least one of `models/yolov8_npss/best.onnx` or `models/pest/best.onnx` exists and `VISION_BACKEND=auto` |
 | Empty farmer list after register | Sign out/in; farmer desk is scoped to `allowed_farmer_ids` |
 | Production mode won't start | Fill required `.env` keys or switch to `RUNTIME_MODE=demo` |
 
@@ -254,6 +256,7 @@ Seed data is **synthetic**. Do not commit real farmer PII, credentials, or Aadha
 | Deployment | [DEPLOYMENT](Docs/DEPLOYMENT.md) |
 | Development | [DEVELOPMENT](Docs/DEVELOPMENT.md) |
 | Testing | [TESTING](Docs/TESTING.md) |
+| Demo recording guide | [DEMO_RECORDING_GUIDE](Docs/DEMO_RECORDING_GUIDE.md) |
 | Agent ops | [AGENT_OPERATIONS](Docs/AGENT_OPERATIONS.md) |
 | Dataset card | [DATASET_CARD](data/seed/DATASET_CARD.md) |
 | Contributing | [CONTRIBUTING](CONTRIBUTING.md) |

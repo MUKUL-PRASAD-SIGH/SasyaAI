@@ -85,15 +85,19 @@ env/
 *.bin
 # This is intentionally rooted: application modules such as
 # backend/app/models/ are source code and must remain trackable.
-# Track only small docs/labels under models/yolov8_npss — never weight files.
+# Track only small docs/labels under model folders — never weight files.
 /models/**
 !/models/yolov8_npss/
 !/models/yolov8_npss/README.md
 !/models/yolov8_npss/labels.yaml
+!/models/pest/
+!/models/pest/labels.yaml
 /models/yolov8_npss/*.pt
 /models/yolov8_npss/*.onnx
 /models/yolov8_npss/**/*.pt
 /models/yolov8_npss/**/*.onnx
+/models/pest/*.pt
+/models/pest/*.onnx
 checkpoints/
 runs/
 wandb/
@@ -293,4 +297,3 @@ ignore/
 REVIEWER_CREDENTIALS.md
 .local/
 .local/**
-
