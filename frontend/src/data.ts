@@ -9,6 +9,11 @@ export interface SyntheticFarmer {
   crop: string;
   season: string;
   waterBudget: number;
+  farmSizeHectares: number;
+  soilFertility: string;
+  budgetInr: number;
+  soilType: string;
+  irrigationType: string;
 }
 
 export const syntheticFarmers: SyntheticFarmer[] = [
@@ -21,6 +26,11 @@ export const syntheticFarmers: SyntheticFarmer[] = [
     crop: "Cotton",
     season: "Kharif",
     waterBudget: 280,
+    farmSizeHectares: 1.2,
+    soilFertility: "moderate",
+    budgetInr: 80000,
+    soilType: "black soil",
+    irrigationType: "mixed",
   },
   {
     id: "AGR_TG_005678",
@@ -31,6 +41,11 @@ export const syntheticFarmers: SyntheticFarmer[] = [
     crop: "Paddy",
     season: "Kharif",
     waterBudget: 330,
+    farmSizeHectares: 2.1,
+    soilFertility: "moderate",
+    budgetInr: 90000,
+    soilType: "clay loam",
+    irrigationType: "irrigated",
   },
   {
     id: "AGR_KA_009012",
@@ -41,6 +56,11 @@ export const syntheticFarmers: SyntheticFarmer[] = [
     crop: "Maize",
     season: "Kharif",
     waterBudget: 220,
+    farmSizeHectares: 1.6,
+    soilFertility: "good",
+    budgetInr: 75000,
+    soilType: "red loam",
+    irrigationType: "mixed",
   },
 ];
 

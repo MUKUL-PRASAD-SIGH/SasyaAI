@@ -975,6 +975,10 @@ class AdvisoryService:
                     season=str(twin["season"]),
                     water_budget_mm=int(twin["water_budget_mm"]),
                     farm_size_hectares=float(twin["farm_size_hectares"]),
+                    soil_fertility=str(twin.get("soil_fertility", "moderate")),
+                    budget_inr=int(twin.get("budget_inr", 0)),
+                    soil_type=str(twin.get("soil_type", "locally recorded soil")),
+                    irrigation_type=str(twin.get("irrigation_type", "rainfed")),
                 )
             )
         return sorted(summaries, key=lambda item: (item.state, item.district, item.farmer_id))

@@ -78,6 +78,9 @@ farmer PII.
 ## `GET /api/v1/demo/farmers`
 
 Returns non-sensitive summaries for the 18-profile synthetic evaluation cohort.
+The summary includes current crop, season, farm size, soil type and fertility,
+irrigation type, water budget, input budget, language, state, and district so
+the role-scoped Profile view can reflect the farmer's registered context.
 It returns `404` in production so real farmers cannot be enumerated.
 
 ## `POST /api/v1/query`

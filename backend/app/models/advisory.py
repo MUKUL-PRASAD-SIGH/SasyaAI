@@ -195,6 +195,10 @@ class DemoFarmerSummary(BaseModel):
     season: str
     water_budget_mm: int
     farm_size_hectares: float
+    soil_fertility: str = "moderate"
+    budget_inr: int = 0
+    soil_type: str = "locally recorded soil"
+    irrigation_type: str = "rainfed"
 
 
 class MemoryEpisode(BaseModel):

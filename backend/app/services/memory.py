@@ -153,6 +153,10 @@ class SeedRepository:
                     "season": twin["season"],
                     "water_budget_mm": twin["water_budget_mm"],
                     "farm_size_hectares": twin["farm_size_hectares"],
+                    "soil_fertility": twin.get("soil_fertility", "moderate"),
+                    "budget_inr": twin.get("budget_inr", 0),
+                    "soil_type": twin.get("soil_type", "locally recorded soil"),
+                    "irrigation_type": twin.get("irrigation_type", "rainfed"),
                 }
             )
         return sorted(summaries, key=lambda item: (item["state"], item["district"]))

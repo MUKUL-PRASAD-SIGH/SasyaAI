@@ -534,6 +534,11 @@ function App() {
         crop: farmer.current_crop,
         season: farmer.season,
         waterBudget: farmer.water_budget_mm,
+        farmSizeHectares: farmer.farm_size_hectares,
+        soilFertility: farmer.soil_fertility,
+        budgetInr: farmer.budget_inr,
+        soilType: farmer.soil_type,
+        irrigationType: farmer.irrigation_type,
       }));
       setFarmers(mapped);
       setQueryForm((current) => {
@@ -1408,29 +1413,25 @@ function App() {
 
       <section className="hero compact-hero" id="workspace">
         <div>
-          <p className="eyebrow">Role-scoped operations</p>
+          <p className="eyebrow">SasyaAI workspace</p>
           <h1>
             {role === "farmer"
-              ? "Ask, upload, and follow the agents."
+              ? "Your farm, clearly managed."
               : role === "extension_officer"
-                ? "Review assigned farms with clear evidence."
-                : "Inspect runtime, farmers, and audit trails."}
+                ? "Review farm decisions with evidence."
+                : "Operate the advisory platform with confidence."}
           </h1>
+          <p className="hero-subtitle">
+            {role === "farmer" ? "Ask a question, check your profile, and get guided next steps." : "A focused view of the work, decisions, and system health in your scope."}
+          </p>
         </div>
-        <dl className="hero-facts" aria-label="Runtime facts">
+        <div className="hero-status" aria-label="Workspace status">
+          <span className="hero-status-dot" aria-hidden="true" />
           <div>
-            <dt>Farmers in scope</dt>
-            <dd>{visibleFarmers.length}</dd>
+            <strong>{runtime?.runtime_mode === "production" ? "Production workflow" : "Demo workflow"}</strong>
+            <small>{visibleFarmers.length} farmer{visibleFarmers.length === 1 ? "" : "s"} in scope · {cases.filter((item) => item.status === "pending").length} open review</small>
           </div>
-          <div>
-            <dt>HITL open</dt>
-            <dd>{cases.filter((item) => item.status === "pending").length}</dd>
-          </div>
-          <div>
-            <dt>Knowledge</dt>
-            <dd>{knowledge ? knowledge.total_documents : "—"}</dd>
-          </div>
-        </dl>
+        </div>
       </section>
 
       {systemError && (
@@ -1464,6 +1465,32 @@ function App() {
               <h2>{role === "system_admin" ? "All farmers" : "Assigned farmers"}</h2>
             </div>
           </div>
+          {role === "farmer" && selectedFarmer ? (
+            <div className="profile-layout">
+              <div className="profile-identity">
+                <span className="profile-avatar" aria-hidden="true">
+                  {selectedFarmer.name.slice(0, 1).toUpperCase()}
+                </span>
+                <div>
+                  <p className="eyebrow">Registered farmer</p>
+                  <h3>{selectedFarmer.name}</h3>
+                  <p>{selectedFarmer.district}, {selectedFarmer.state}</p>
+                  <span className="profile-id">{selectedFarmer.id}</span>
+                </div>
+              </div>
+              <dl className="profile-details">
+                <div><dt>Current crop</dt><dd>{selectedFarmer.crop}</dd></div>
+                <div><dt>Season</dt><dd>{selectedFarmer.season}</dd></div>
+                <div><dt>Farm size</dt><dd>{selectedFarmer.farmSizeHectares} ha</dd></div>
+                <div><dt>Soil</dt><dd>{selectedFarmer.soilType}</dd></div>
+                <div><dt>Soil fertility</dt><dd>{selectedFarmer.soilFertility}</dd></div>
+                <div><dt>Irrigation</dt><dd>{selectedFarmer.irrigationType}</dd></div>
+                <div><dt>Water budget</dt><dd>{selectedFarmer.waterBudget} mm</dd></div>
+                <div><dt>Input budget</dt><dd>₹{selectedFarmer.budgetInr.toLocaleString("en-IN")}</dd></div>
+                <div><dt>Language</dt><dd>{languageLabels[selectedFarmer.preferredLanguage] ?? "English"}</dd></div>
+              </dl>
+            </div>
+          ) : (
           <div className="farmer-grid">
             {visibleFarmers.map((farmer) => (
               <button
@@ -1482,6 +1509,7 @@ function App() {
               </button>
             ))}
           </div>
+          )}
         </section>
       )}
 

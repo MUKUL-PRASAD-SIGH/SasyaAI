@@ -180,6 +180,10 @@ export interface DemoFarmerSummary {
   season: string;
   water_budget_mm: number;
   farm_size_hectares: number;
+  soil_fertility: string;
+  budget_inr: number;
+  soil_type: string;
+  irrigation_type: string;
 }
 
 export interface AdvisoryResponse {
