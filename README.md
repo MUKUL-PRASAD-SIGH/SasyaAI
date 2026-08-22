@@ -3,7 +3,7 @@
 Safety-gated agricultural advisory for Indian farmers — the current branch ships a working demo stack with a FastAPI backend, a Vite dashboard, role-based auth, farmer onboarding, crop-image upload, advisory workflow, HITL review, and runtime/audit endpoints. The implementation is demo-first and synthetic, but the consent gates, verification checks, and reviewer flows are wired end to end.
 
 | Mode | What it is |
-|---|---|
+|---|---|---|---|
 | `RUNTIME_MODE=demo` | Local, credentialed workflow over synthetic seed data. Fastest path for reviewers. |
 | `RUNTIME_MODE=production` + `PRODUCTION_DATA_MODE=synthetic` | Real auth, PostgreSQL, Qdrant, Gemini — labelled synthetic corpus only. |
 | `RUNTIME_MODE=production` + `PRODUCTION_DATA_MODE=live` | AgriStack-ready path after gateway approval. |
@@ -100,21 +100,36 @@ Vite proxies `/api` and `/health` to port 8000 (see [`frontend/vite.config.ts`](
 
 ### First login walkthrough
 
-1. Open http://127.0.0.1:5173
+1. Open the Docker dashboard at http://127.0.0.1:5174. For local Vite
+  development, use http://127.0.0.1:5173 instead.
 2. Pick a role:
    - **Farmer** — Email OTP, Continue with Google (demo), or **Register new farmer**
    - **Officer / Admin** — Email OTP or Advanced API key
-3. Demo credentials (also in `.env` as `AUTH_PRINCIPALS_JSON`):
+3. Use one of these exact demo credentials. They are also in local `.env` as
+  `AUTH_PRINCIPALS_JSON`:
 
-| Role | API key | Email (OTP) |
+| Role | Subject | API key | Email for OTP |
 |---|---|---|
-| Farmer | `farmer-demo-key-0123456789abcdef` | `asha.patil@demo.sasyaai.local` |
-| Officer (West) | `officer-west-demo-key-0123456789ab` | `officer.west@demo.sasyaai.local` |
-| Officer (South) | `officer-south-demo-key-0123456789a` | `officer.south@demo.sasyaai.local` |
-| System Admin | `admin-demo-key-0123456789abcdef0` | `admin@demo.sasyaai.local` |
+| Farmer | `farmer-asha` | `farmer-demo-key-0123456789abcdef` | `asha.patil@demo.sasyaai.local` |
+| Extension Officer (West) | `officer-west` | `officer-west-demo-key-0123456789ab` | `officer.west@demo.sasyaai.local` |
+| Extension Officer (South) | `officer-south` | `officer-south-demo-key-0123456789a` | `officer.south@demo.sasyaai.local` |
+| Main System Admin | `system-admin` | `admin-demo-key-0123456789abcdef0` | `admin@demo.sasyaai.local` |
 
-4. OTP: Request OTP → copy `otp_demo_code` from the UI / API response → Sign in  
-5. New farmers: **Register new farmer** first; then that email can OTP / Google-demo login
+4. For API-key login: open **Advanced / reviewer API key**, paste the role's API
+  key, and click **Sign in**.
+5. For OTP login: enter the exact email, click **Request OTP**, copy the new
+  `otp_demo_code` shown by the UI, enter it, and click **Sign in**. OTP codes
+  are generated per request and are not fixed in this README.
+6. New farmers: click **Register new farmer** first; that email can then use
+  Email OTP or Google-demo login.
+
+**Officer routing:** West officers receive Maharashtra, Gujarat, Rajasthan,
+Madhya Pradesh, and Goa cases. South officers receive Karnataka, Telangana,
+Tamil Nadu, Andhra Pradesh, and Kerala cases. The Main System Admin can inspect
+all farmer scopes, runtime health, audit, and HITL cases.
+
+These credentials are for the local synthetic demo only. Never reuse them in
+production or place real API keys in README, source code, screenshots, or video.
 
 Copy [`REVIEWER_CREDENTIALS.example.md`](REVIEWER_CREDENTIALS.example.md) → `REVIEWER_CREDENTIALS.md` for a local cheat-sheet (gitignored).
 
