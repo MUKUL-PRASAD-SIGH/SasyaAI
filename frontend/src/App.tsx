@@ -148,6 +148,19 @@ function getErrorMessage(error: unknown): string {
   return "Something went wrong while contacting the advisory runtime.";
 }
 
+function getLoginErrorMessage(error: unknown, role: AppRole): string {
+  const message = getErrorMessage(error);
+  if (message === "No principal is registered for this email and role.") {
+    if (role === "extension_officer") {
+      return "Officer email not recognised. Use officer.west@demo.sasyaai.local or officer.south@demo.sasyaai.local, then request a new OTP.";
+    }
+    if (role === "system_admin") {
+      return "Admin email not recognised. Use admin@demo.sasyaai.local, then request a new OTP.";
+    }
+  }
+  return message;
+}
+
 function isAuthenticationFailure(error: unknown): boolean {
   return error instanceof ApiError && error.status === 401;
 }
@@ -222,6 +235,12 @@ function formatVisionLabel(label: string | null | undefined): string {
   return cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
 }
 
+function confidenceLabel(confidence: number): string {
+  if (confidence >= 0.8) return "Strong signal";
+  if (confidence >= 0.65) return "Moderate signal";
+  return "Low-confidence signal";
+}
+
 export function CropHealthScan({ image }: { image: FarmerImage }) {
   const specialists = image.vision?.specialists ?? {};
   const rows = [
@@ -229,6 +248,8 @@ export function CropHealthScan({ image }: { image: FarmerImage }) {
     { kind: "pest" as const, title: "Pest", evidence: specialists.pest },
   ];
   const availableSpecialists = rows.filter(({ evidence }) => evidence?.available).length;
+  const detectedFindings = rows.filter(({ evidence }) => evidence?.detected);
+  const reviewRequired = Boolean(image.vision?.needs_officer_review);
 
   return (
     <section className="crop-health-scan" aria-label="Crop health scan">
@@ -245,6 +266,13 @@ export function CropHealthScan({ image }: { image: FarmerImage }) {
             : "Pixel fallback"}
         </span>
       </div>
+      <div className={`scan-decision ${reviewRequired ? "is-review" : "is-observed"}`}>
+        <span className="scan-decision-icon" aria-hidden="true">{reviewRequired ? "!" : "✓"}</span>
+        <div>
+          <strong>{reviewRequired ? "Extension-officer review required" : "Evidence ready for advisory"}</strong>
+          <p>{reviewRequired ? "Model signals are not a diagnosis. Confirm findings before treatment." : "Signals are shown as evidence and remain subject to the safety workflow."}</p>
+        </div>
+      </div>
       <div className="scan-findings">
         {rows.map(({ kind, title, evidence }) => {
           const confidence = evidence?.confidence ?? 0;
@@ -257,11 +285,18 @@ export function CropHealthScan({ image }: { image: FarmerImage }) {
               : "Model not installed";
           return (
             <article className="scan-finding" key={kind}>
-              <span className="scan-kind">{title}</span>
+              <div className="scan-finding-topline">
+                <span className={`scan-kind scan-kind-${kind}`}>{title}</span>
+                {evidence?.detected && <span className="scan-signal">Model signal</span>}
+              </div>
               <strong>{formatVisionLabel(evidence?.label)}</strong>
               <div className="scan-confidence-row">
-                <span>{modelState}</span>
-                {evidence?.detected && <b>{Math.round(confidence * 100)}%</b>}
+                <span>{evidence?.detected ? confidenceLabel(confidence) : modelState}</span>
+                {evidence?.detected && (
+                  <b>
+                    <span>{Math.round(confidence * 100)}%</span> confidence
+                  </b>
+                )}
               </div>
               {evidence?.detected && (
                 <div className="scan-meter" aria-label={`${title} confidence ${Math.round(confidence * 100)}%`}>
@@ -272,6 +307,12 @@ export function CropHealthScan({ image }: { image: FarmerImage }) {
           );
         })}
       </div>
+      <div className="scan-visual-evidence">
+        <span className="scan-section-label">Visual evidence</span>
+        <p>{detectedFindings.length > 0
+          ? `Observed signals: ${detectedFindings.map(({ title, evidence }) => `${title.toLowerCase()} pattern (${Math.round((evidence?.confidence ?? 0) * 100)}%)`).join(" and ")}. Confirm with an extension officer.`
+          : image.analysis_summary || "No model finding crossed the detection threshold."}</p>
+      </div>
       <div className="scan-evidence">
         <strong>Vision evidence</strong>
         {rows.map(({ kind, title, evidence }) => (
@@ -280,11 +321,25 @@ export function CropHealthScan({ image }: { image: FarmerImage }) {
           </span>
         ))}
       </div>
-      <p className="scan-summary">{image.analysis_summary}</p>
-      {image.vision?.needs_officer_review && (
-        <p className="scan-review-note">Low-confidence evidence requires extension-officer review.</p>
-      )}
+      <p className="scan-summary">Model output is evidence, not a definitive diagnosis.</p>
     </section>
+  );
+}
+
+function VisionProcessingState() {
+  return (
+    <div className="vision-processing" role="status" aria-live="polite">
+      <div className="processing-spinner" aria-hidden="true" />
+      <div>
+        <strong>Analysing crop image</strong>
+        <p>Preparing image, checking disease and pest signals, then calibrating confidence.</p>
+      </div>
+      <div className="processing-steps" aria-hidden="true">
+        <span className="is-active">Preprocess</span>
+        <span>Specialists</span>
+        <span>Evidence</span>
+      </div>
+    </div>
   );
 }
 
@@ -781,7 +836,7 @@ function App() {
         setLoginError(null);
       }
     } catch (error) {
-      setLoginError(getErrorMessage(error));
+      setLoginError(getLoginErrorMessage(error, loginRole));
     } finally {
       setIsAuthenticating(false);
     }
@@ -818,7 +873,7 @@ function App() {
       }
       completeLogin(result);
     } catch (error) {
-      setLoginError(getErrorMessage(error));
+      setLoginError(getLoginErrorMessage(error, loginRole));
     } finally {
       setIsAuthenticating(false);
     }
@@ -994,7 +1049,9 @@ function App() {
       setImages((current) => [record, ...current]);
       setQueryForm((current) => ({ ...current, imageId: String(record.image_id || "") }));
       setAdvisoryImageStatus(
-        `Attached ${String(record.filename || file.name)} · ${String(record.analysis_summary || "Analysis complete.")}`,
+        record.vision?.needs_officer_review
+          ? `Attached ${String(record.filename || file.name)} · review required. Run the advisory to create the officer case.`
+          : `Attached ${String(record.filename || file.name)} · ${String(record.analysis_summary || "Analysis complete.")}`,
       );
     } catch (error) {
       setAdvisoryImageStatus(getErrorMessage(error));
@@ -1017,7 +1074,11 @@ function App() {
       const record = await uploadFarmerImage(queryForm.farmerId, file);
       setImages((current) => [record, ...current]);
       setQueryForm((current) => ({ ...current, imageId: String(record.image_id || "") }));
-      setUploadStatus(`Processed ${String(record.filename || file.name)}. Ready for advisory.`);
+      setUploadStatus(
+        record.vision?.needs_officer_review
+          ? `Review required. Attach this image to an advisory question to create the officer case.`
+          : `Processed ${String(record.filename || file.name)}. Ready for advisory.`,
+      );
       form.reset();
     } catch (error) {
       setUploadStatus(getErrorMessage(error));
@@ -1106,10 +1167,17 @@ function App() {
                       placeholder={
                         loginRole === "farmer"
                           ? "you@gmail.com"
-                          : "asha.patil@demo.sasyaai.local"
+                          : loginRole === "extension_officer"
+                            ? "officer.west@demo.sasyaai.local"
+                            : "admin@demo.sasyaai.local"
                       }
                     />
                   </label>
+                  {loginRole !== "farmer" && (
+                    <p className="login-field-hint">
+                      Demo OTP email: {loginRole === "extension_officer" ? "officer.west@demo.sasyaai.local" : "admin@demo.sasyaai.local"}
+                    </p>
+                  )}
 
                   <div className="otp-row">
                     <label>
@@ -1529,7 +1597,13 @@ function App() {
             <button className="primary-button" type="submit">
               Upload & analyse
             </button>
+            {uploadStatus === "Uploading and analysing…" && <VisionProcessingState />}
             {uploadStatus && <p className="form-message">{uploadStatus}</p>}
+            {uploadStatus?.toLowerCase().includes("review required") && (
+              <button className="secondary-button" type="button" onClick={() => setActiveTab("advisory")}>
+                Continue to advisory
+              </button>
+            )}
           </form>
           <ul className="queue-list">
             {images.map((image) => (
@@ -1850,6 +1924,7 @@ function App() {
             </div>
             {(advisoryImageStatus || attachedImage) && (
               <div className="advisory-image-status">
+                {isUploadingAdvisoryImage && <VisionProcessingState />}
                 {attachedImage && <CropHealthScan image={attachedImage} />}
                 {advisoryImageStatus && (
                   <p className="form-message" role="status">
