@@ -39,6 +39,7 @@ import type {
   CaseStatus,
   Decision,
   Evidence,
+  FarmerImage,
   HitlCase,
   Intent,
   KnowledgeStats,
@@ -213,6 +214,80 @@ function EvidenceList({ evidence }: { evidence: Evidence[] }) {
   );
 }
 
+function formatVisionLabel(label: string | null | undefined): string {
+  if (!label) {
+    return "No detection above threshold";
+  }
+  const cleaned = label.replace(/___/g, " · ").replace(/_/g, " ").trim();
+  return cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
+}
+
+export function CropHealthScan({ image }: { image: FarmerImage }) {
+  const specialists = image.vision?.specialists ?? {};
+  const rows = [
+    { kind: "disease" as const, title: "Disease", evidence: specialists.disease },
+    { kind: "pest" as const, title: "Pest", evidence: specialists.pest },
+  ];
+  const availableSpecialists = rows.filter(({ evidence }) => evidence?.available).length;
+
+  return (
+    <section className="crop-health-scan" aria-label="Crop health scan">
+      <div className="scan-heading">
+        <div>
+          <p className="eyebrow">Crop health scan</p>
+          <h3>{image.filename || "Uploaded crop image"}</h3>
+        </div>
+        <span className={`scan-backend scan-${image.vision?.backend || "pixel"}`}>
+          {image.vision?.backend === "onnx"
+            ? availableSpecialists > 1
+              ? "Dual vision"
+              : "ONNX vision"
+            : "Pixel fallback"}
+        </span>
+      </div>
+      <div className="scan-findings">
+        {rows.map(({ kind, title, evidence }) => {
+          const confidence = evidence?.confidence ?? 0;
+          const modelState = evidence?.available
+            ? evidence.detected
+              ? "Detection"
+              : "Model ran · no match"
+            : evidence?.installed
+              ? "Model unavailable"
+              : "Model not installed";
+          return (
+            <article className="scan-finding" key={kind}>
+              <span className="scan-kind">{title}</span>
+              <strong>{formatVisionLabel(evidence?.label)}</strong>
+              <div className="scan-confidence-row">
+                <span>{modelState}</span>
+                {evidence?.detected && <b>{Math.round(confidence * 100)}%</b>}
+              </div>
+              {evidence?.detected && (
+                <div className="scan-meter" aria-label={`${title} confidence ${Math.round(confidence * 100)}%`}>
+                  <span style={{ width: `${Math.round(confidence * 100)}%` }} />
+                </div>
+              )}
+            </article>
+          );
+        })}
+      </div>
+      <div className="scan-evidence">
+        <strong>Vision evidence</strong>
+        {rows.map(({ kind, title, evidence }) => (
+          <span key={kind} className={evidence?.available ? "is-available" : "is-unavailable"}>
+            {evidence?.available ? "✓" : "–"} {title} model
+          </span>
+        ))}
+      </div>
+      <p className="scan-summary">{image.analysis_summary}</p>
+      {image.vision?.needs_officer_review && (
+        <p className="scan-review-note">Low-confidence evidence requires extension-officer review.</p>
+      )}
+    </section>
+  );
+}
+
 function TraceList({ trace }: { trace: TraceEvent[] }) {
   return (
     <ol className="trace-list thinking-timeline">
@@ -261,6 +336,20 @@ function AgentRunList({ runs }: { runs: AgentRun[] }) {
         </li>
       ))}
     </ol>
+  );
+}
+
+function WorkflowActivity({ runs, trace }: { runs: AgentRun[]; trace: TraceEvent[] }) {
+  return (
+    <div className="workflow-activity">
+      <AgentRunList runs={runs} />
+      {trace.length > 0 && (
+        <details className="workflow-trace">
+          <summary>View execution trace</summary>
+          <TraceList trace={trace} />
+        </details>
+      )}
+    </div>
   );
 }
 
@@ -320,7 +409,7 @@ function App() {
   const [reviewError, setReviewError] = useState<string | null>(null);
   const [isDeciding, setIsDeciding] = useState(false);
   const [activeTab, setActiveTab] = useState<WorkspaceTab>("advisory");
-  const [images, setImages] = useState<Record<string, unknown>[]>([]);
+  const [images, setImages] = useState<FarmerImage[]>([]);
   const [history, setHistory] = useState<Record<string, unknown>[]>([]);
   const [auditEvents, setAuditEvents] = useState<Record<string, unknown>[]>([]);
   const [uploadStatus, setUploadStatus] = useState<string | null>(null);
@@ -1416,7 +1505,7 @@ function App() {
           </form>
           <ul className="queue-list">
             {images.map((image) => (
-              <li key={String(image.image_id)}>
+              <li className="image-scan-list-item" key={image.image_id}>
                 <button
                   type="button"
                   className="queue-case"
@@ -1427,9 +1516,10 @@ function App() {
                     }))
                   }
                 >
-                  <strong>{String(image.filename || "image")}</strong>
-                  <small>{String(image.analysis_summary || "")}</small>
+                  <strong>{image.filename || "image"}</strong>
+                  <small>Attach this scan to the next advisory</small>
                 </button>
+                <CropHealthScan image={image} />
               </li>
             ))}
           </ul>
@@ -1467,8 +1557,7 @@ function App() {
           </div>
           {response ? (
             <>
-              <AgentRunList runs={response.agent_runs} />
-              <TraceList trace={response.trace} />
+              <WorkflowActivity runs={response.agent_runs} trace={response.trace} />
             </>
           ) : (
             <div className="agent-roster">
@@ -1548,11 +1637,12 @@ function App() {
         </section>
       )}
 
-      <div
-        className={`workspace-grid workspace-${activeTab === "review" ? "review" : "advisory"}`}
-        hidden={activeTab !== "advisory" && activeTab !== "review"}
-      >
-        <section className="query-column" aria-labelledby="advisory-heading" hidden={activeTab !== "advisory"}>
+      {(activeTab === "advisory" || activeTab === "review") && (
+        <div
+          className={`workspace-grid workspace-${activeTab === "review" ? "review" : "advisory"}`}
+        >
+        {activeTab === "advisory" && (
+        <section className="query-column" aria-labelledby="advisory-heading">
           <form className="panel query-panel" onSubmit={handleQuery}>
             <div className="panel-heading">
               <div>
@@ -1732,25 +1822,7 @@ function App() {
             </div>
             {(advisoryImageStatus || attachedImage) && (
               <div className="advisory-image-status">
-                {attachedImage && (
-                  <p className="form-message">
-                    <strong>{String(attachedImage.filename || "Attached image")}</strong>
-                    {attachedImage.analysis_summary
-                      ? ` · ${String(attachedImage.analysis_summary)}`
-                      : ""}
-                    {typeof attachedImage.confidence === "number"
-                      ? ` · confidence ${(Number(attachedImage.confidence) * 100).toFixed(0)}%`
-                      : ""}
-                    {attachedImage.suspected_issue
-                      ? ` · suspected: ${String(attachedImage.suspected_issue)}`
-                      : ""}
-                    {typeof attachedImage.vision === "object" &&
-                    attachedImage.vision !== null &&
-                    (attachedImage.vision as { needs_officer_review?: boolean }).needs_officer_review
-                      ? " · low confidence → officer review recommended"
-                      : ""}
-                  </p>
-                )}
+                {attachedImage && <CropHealthScan image={attachedImage} />}
                 {advisoryImageStatus && (
                   <p className="form-message" role="status">
                     {advisoryImageStatus}
@@ -1828,8 +1900,7 @@ function App() {
                       <h3>Agent workflow</h3>
                     </div>
                   </div>
-                  <AgentRunList runs={response.agent_runs} />
-                  <TraceList trace={response.trace} />
+                  <WorkflowActivity runs={response.agent_runs} trace={response.trace} />
                 </section>
                 <section className="panel verification-panel">
                   <VerificationList checks={response.verification} />
@@ -1841,8 +1912,10 @@ function App() {
             )}
           </section>
         </section>
+        )}
 
-        <aside className="review-column" aria-labelledby="review-heading" hidden={activeTab !== "review" && role === "farmer"}>
+        {activeTab === "review" && (
+        <aside className="review-column" aria-labelledby="review-heading">
           <section className="panel queue-panel">
             <div className="panel-heading">
               <div>
@@ -2026,7 +2099,9 @@ function App() {
             </section>
           )}
         </aside>
+        )}
       </div>
+      )}
     </main>
   );
 }

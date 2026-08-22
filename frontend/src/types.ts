@@ -72,6 +72,50 @@ export interface RuntimeHealth {
   google_oauth_enabled?: string;
 }
 
+export interface VisionSpecialistEvidence {
+  kind: "disease" | "pest";
+  display_name: string;
+  installed: boolean;
+  available: boolean;
+  detected: boolean;
+  label: string | null;
+  confidence: number;
+  raw_confidence: number;
+  needs_officer_review: boolean;
+  model_version: string;
+  inference_ms: number;
+  summary: string;
+  detections: Record<string, unknown>[];
+}
+
+export interface VisionProvenance {
+  analysis_summary: string;
+  suspected_issue: string | null;
+  confidence: number;
+  model_version: string;
+  inference_ms: number;
+  input_hash: string;
+  anomaly_score: number;
+  quality_flags: string[];
+  needs_officer_review: boolean;
+  backend: string;
+  specialists?: Partial<Record<"disease" | "pest", VisionSpecialistEvidence>>;
+  extras?: Record<string, unknown>;
+}
+
+export interface FarmerImage {
+  image_id: string;
+  farmer_id: string;
+  filename: string;
+  content_type: string;
+  stored_path: string;
+  uploaded_at: string;
+  analysis_summary: string;
+  suspected_issue: string | null;
+  confidence: number;
+  vision?: VisionProvenance;
+}
+
 export type AppRole = "farmer" | "extension_officer" | "system_admin";
 
 export interface SessionPrincipal {

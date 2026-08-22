@@ -2,9 +2,9 @@ import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import App from "./App";
+import App, { CropHealthScan } from "./App";
 import { ApiError } from "./api";
-import type { HitlCase } from "./types";
+import type { FarmerImage, HitlCase } from "./types";
 
 const apiMocks = vi.hoisted(() => ({
   getKnowledgeStats: vi.fn(),
@@ -261,6 +261,74 @@ describe("login gate", () => {
     expect(await screen.findByRole("heading", { name: "Sign in" })).toBeInTheDocument();
     expect(apiMocks.clearSession).toHaveBeenCalled();
     expect(apiMocks.logout).toHaveBeenCalled();
+  });
+});
+
+describe("crop health scan", () => {
+  it("shows disease and pest specialist findings independently", () => {
+    const image: FarmerImage = {
+      image_id: "IMG-1",
+      farmer_id: "AGR_MH_001234",
+      filename: "tomato-leaf.jpg",
+      content_type: "image/jpeg",
+      stored_path: "IMG-1.jpg",
+      uploaded_at: "2026-08-16T10:00:00Z",
+      analysis_summary: "Disease and pest evidence fused.",
+      suspected_issue: "Tomato___Early_blight + whitefly",
+      confidence: 0.91,
+      vision: {
+        analysis_summary: "Disease and pest evidence fused.",
+        suspected_issue: "Tomato___Early_blight + whitefly",
+        confidence: 0.91,
+        model_version: "yolo-dual-specialist-onnx-v1",
+        inference_ms: 120,
+        input_hash: "abc",
+        anomaly_score: 0,
+        quality_flags: [],
+        needs_officer_review: false,
+        backend: "onnx",
+        specialists: {
+          disease: {
+            kind: "disease",
+            display_name: "Disease model",
+            installed: true,
+            available: true,
+            detected: true,
+            label: "Tomato___Early_blight",
+            confidence: 0.91,
+            raw_confidence: 0.91,
+            needs_officer_review: false,
+            model_version: "disease-v1",
+            inference_ms: 70,
+            summary: "Disease detected.",
+            detections: [],
+          },
+          pest: {
+            kind: "pest",
+            display_name: "Pest model",
+            installed: true,
+            available: true,
+            detected: true,
+            label: "whitefly",
+            confidence: 0.83,
+            raw_confidence: 0.83,
+            needs_officer_review: false,
+            model_version: "pest-v1",
+            inference_ms: 50,
+            summary: "Pest detected.",
+            detections: [],
+          },
+        },
+      },
+    };
+
+    render(<CropHealthScan image={image} />);
+
+    expect(screen.getByText("Tomato · Early blight")).toBeInTheDocument();
+    expect(screen.getByText("Whitefly")).toBeInTheDocument();
+    expect(screen.getByText("91%")).toBeInTheDocument();
+    expect(screen.getByText("83%")).toBeInTheDocument();
+    expect(screen.getByText("Dual vision")).toBeInTheDocument();
   });
 });
 

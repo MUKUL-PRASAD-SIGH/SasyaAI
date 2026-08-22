@@ -4,6 +4,7 @@ import type {
   DemoFarmerSummary,
   DecisionRequest,
   FeedbackPayload,
+  FarmerImage,
   HitlCase,
   KnowledgeStats,
   LoginPayload,
@@ -233,7 +234,7 @@ export function googleLogin(payload: { email: string }): Promise<LoginResult> {
 /** @deprecated Prefer googleLogin — kept for older imports. */
 export const googleDemoLogin = googleLogin;
 
-export function uploadFarmerImage(farmerId: string, file: File): Promise<Record<string, unknown>> {
+export function uploadFarmerImage(farmerId: string, file: File): Promise<FarmerImage> {
   const body = new FormData();
   body.append("file", file);
   return request("/api/v1/farmers/" + encodeURIComponent(farmerId) + "/images", {
@@ -242,7 +243,7 @@ export function uploadFarmerImage(farmerId: string, file: File): Promise<Record<
   });
 }
 
-export function listFarmerImages(farmerId: string): Promise<Record<string, unknown>[]> {
+export function listFarmerImages(farmerId: string): Promise<FarmerImage[]> {
   return request("/api/v1/farmers/" + encodeURIComponent(farmerId) + "/images");
 }
 
