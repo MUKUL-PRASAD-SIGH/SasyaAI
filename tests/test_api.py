@@ -113,6 +113,22 @@ def test_karnataka_crop_plan_uses_a_feasible_seeded_option(tmp_path):
     assert financial_check["status"] == "pass"
 
 
+def test_unknown_regional_crop_is_not_silently_substituted(tmp_path):
+    response = client_for(tmp_path).post(
+        "/api/v1/query",
+        json={
+            "farmer_id": "AGR_MH_001234",
+            "query": "Can I switch my crop to paddy in same field?",
+        },
+    )
+
+    body = response.json()
+    assert response.status_code == 200
+    assert body["status"] == "requires_human_review"
+    assert "sorghum" not in body["recommendation"].lower()
+    assert "paddy" in body["recommendation"].lower()
+
+
 def test_low_confidence_diagnosis_is_queued_for_review(tmp_path):
     response = client_for(tmp_path).post(
         "/api/v1/query",

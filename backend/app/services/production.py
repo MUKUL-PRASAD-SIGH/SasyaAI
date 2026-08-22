@@ -38,6 +38,8 @@ from app.services.advisory import (
     FarmerNotFoundError,
     HITLCaseNotPendingError,
     HITLCaseSafetyBlockedError,
+    _vision_agent_runs,
+    _vision_trace_events,
 )
 from app.services.agents import AgentTimer
 from app.services.connectors import (
@@ -606,6 +608,20 @@ class ProductionAdvisoryService:
             or plan.needs_human_review
             or plan.confidence < self.settings.hitl_confidence_threshold
         )
+        vision_needs_review = False
+        if image_context:
+            vision_meta = image_context.get("vision")
+            if isinstance(vision_meta, dict):
+                image_detail = (
+                    f"Vision {vision_meta.get('backend', 'pixel')} "
+                    f"({vision_meta.get('model_version', 'unknown')}) "
+                    f"in {vision_meta.get('inference_ms', '?')}ms; "
+                    f"label={vision_meta.get('suspected_issue') or 'none'}; "
+                    f"confidence={vision_meta.get('confidence')}"
+                )
+                if vision_meta.get("needs_officer_review"):
+                    vision_needs_review = True
+                    needs_hitl = True
         trace = [
             TraceEvent(
                 stage="consent_preflight",
@@ -630,18 +646,14 @@ class ProductionAdvisoryService:
                     else "Read live AgriStack, weather, and market context."
                 ),
             ),
+            *_vision_trace_events(image_context, image_detail),
             TraceEvent(
-                stage="image_processor",
-                status="completed" if image_context else "skipped",
-                detail=image_detail,
-            ),
-            TraceEvent(
-                stage="memory_agent",
+                stage="evidence_retrieval",
                 status="completed",
                 detail="Read the durable farmer twin and Qdrant evidence.",
             ),
             TraceEvent(
-                stage=graph.specialist_agent,
+                stage="specialist_reasoning",
                 status="completed",
                 detail="Gemini produced a specialist, schema-validated grounded draft.",
             ),
@@ -655,11 +667,18 @@ class ProductionAdvisoryService:
                 ),
             ),
             TraceEvent(
-                stage="verifier",
+                stage="safety_verification",
                 status="completed",
                 detail="Applied deterministic grounding, weather, and dosage gates.",
             ),
+            TraceEvent(
+                stage="advisory_generated",
+                status="completed",
+                detail="Generated the farmer-facing advisory for delivery or officer review.",
+            ),
         ]
+        if image_context:
+            agent_runs[2:2] = _vision_agent_runs(image_context)
         agent_runs.insert(
             0,
             root_timer.finish(
@@ -677,7 +696,11 @@ class ProductionAdvisoryService:
                 else (
                     "A hard safety check failed."
                     if verification_failed
-                    else "Human review required by confidence or plan policy."
+                    else (
+                        "Vision evidence requires extension-officer review."
+                        if vision_needs_review
+                        else "Human review required by confidence or plan policy."
+                    )
                 )
             )
             trace.append(TraceEvent(stage="human_in_the_loop", status="queued", detail=reason))
@@ -923,6 +946,7 @@ class ProductionAdvisoryService:
                 content_type=content_type,
                 filename=filename,
                 backend=backend,
+                hitl_threshold=getattr(self.settings, "vision_hitl_threshold", 0.70),
             )
         except VisionPreprocessError as error:
             raise ValueError(str(error)) from error

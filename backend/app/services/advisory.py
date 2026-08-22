@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from typing import Any
 from uuid import uuid4
 
 from app.core.config import Settings, get_settings
@@ -69,6 +70,116 @@ class AdvisoryDraft:
     recommended_irrigation_mm: int | None = None
     estimated_input_cost_inr: int | None = None
     pesticide_protocol_max_dose_ml_per_l: float | None = None
+
+
+def _vision_specialists(image_context: dict[str, Any] | None) -> dict[str, dict[str, Any]]:
+    if not image_context:
+        return {}
+    vision = image_context.get("vision")
+    if not isinstance(vision, dict):
+        return {}
+    specialists = vision.get("specialists")
+    if not isinstance(specialists, dict):
+        extras = vision.get("extras")
+        specialists = extras.get("specialists") if isinstance(extras, dict) else None
+    if not isinstance(specialists, dict):
+        return {}
+    return {
+        str(kind): value
+        for kind, value in specialists.items()
+        if isinstance(value, dict)
+    }
+
+
+def _vision_trace_events(
+    image_context: dict[str, Any] | None,
+    image_detail: str,
+) -> list[TraceEvent]:
+    if not image_context:
+        return [
+            TraceEvent(stage="image_preprocessing", status="skipped", detail=image_detail)
+        ]
+
+    events = [
+        TraceEvent(stage="image_preprocessing", status="completed", detail=image_detail)
+    ]
+    specialists = _vision_specialists(image_context)
+    for kind in ("disease", "pest"):
+        evidence = specialists.get(kind, {})
+        events.append(
+            TraceEvent(
+                stage=f"{kind}_detection",
+                status="completed" if evidence.get("available") else "skipped",
+                detail=str(
+                    evidence.get("summary")
+                    or f"No {kind} specialist evidence was produced for this image."
+                ),
+            )
+        )
+    events.append(
+        TraceEvent(
+            stage="vision_evidence_fusion",
+            status="completed",
+            detail=str(image_context.get("analysis_summary", "Fused crop-image evidence.")),
+        )
+    )
+    return events
+
+
+def _vision_agent_runs(image_context: dict[str, Any]) -> list[AgentRun]:
+    vision = image_context.get("vision")
+    vision = vision if isinstance(vision, dict) else {}
+    specialists = _vision_specialists(image_context)
+    runs = [
+        AgentRun(
+            agent_id="vision_preprocessor",
+            name="Image Preprocessing",
+            role="Validates, strips metadata, resizes, and quality-gates crop imagery",
+            status="completed",
+            execution_mode="tool",
+            duration_ms=0,
+            summary=(
+                "Prepared the crop image and calculated quality/anomaly provenance."
+            ),
+            input_sources=["farmer_image"],
+        )
+    ]
+    for kind, name in (("disease", "Disease Detection"), ("pest", "Pest Detection")):
+        evidence = specialists.get(kind, {})
+        runs.append(
+            AgentRun(
+                agent_id=f"{kind}_vision_specialist",
+                name=name,
+                role=f"Dedicated ONNX {kind} evidence specialist",
+                status="completed" if evidence.get("available") else "skipped",
+                execution_mode="tool",
+                duration_ms=int(round(float(evidence.get("inference_ms", 0.0)))),
+                summary=str(
+                    evidence.get("summary")
+                    or f"No {kind} specialist evidence was available."
+                ),
+                input_sources=["preprocessed_farmer_image"],
+                output_confidence=(
+                    float(evidence.get("confidence", 0.0))
+                    if evidence.get("available")
+                    else None
+                ),
+            )
+        )
+    runs.append(
+        AgentRun(
+            agent_id="vision_evidence_fusion",
+            name="Vision Evidence Fusion",
+            role="Preserves disease and pest findings under the stable image contract",
+            status="completed",
+            execution_mode="deterministic",
+            duration_ms=int(round(float(vision.get("inference_ms", 0.0)))),
+            summary=str(image_context.get("analysis_summary", "Fused crop-image evidence.")),
+            input_sources=["disease_vision", "pest_vision"],
+            output_confidence=float(image_context.get("confidence", 0.0)),
+        )
+    )
+    return runs
 
 
 class AdvisoryService:
@@ -220,12 +331,23 @@ class AdvisoryService:
         ]
 
         lower_query = query.lower()
-        selected = max(
-            feasible_records,
-            key=lambda record: (
-                str(record.get("crop", "")).lower() in lower_query,
-                -int(record.get("water_need_mm", water_budget)),
-            ),
+        known_crops = {
+            str(record.get("crop", "")).lower()
+            for record in self.repository.list_knowledge("crops")
+            if record.get("crop")
+        }
+        requested_crop = next(
+            (crop for crop in known_crops if crop in lower_query),
+            None,
+        )
+        matching_records = (
+            [record for record in feasible_records if str(record.get("crop", "")).lower() == requested_crop]
+            if requested_crop
+            else feasible_records
+        )
+        selected = min(
+            matching_records,
+            key=lambda record: int(record.get("water_need_mm", water_budget)),
             default=None,
         )
         evidence_records = self.repository.search_knowledge("crops", query)
@@ -263,10 +385,21 @@ class AdvisoryService:
                 estimated_input_cost_inr=input_cost,
             )
 
-        return AdvisoryDraft(
-            recommendation=(
+        if requested_crop:
+            recommendation = (
+                f"The requested crop {requested_crop} has no validated {state} record that fits this "
+                f"farm's {water_budget} mm water and ₹{financial_budget} input constraints. "
+                "Do not change crops without extension-officer review."
+            )
+        else:
+            recommendation = (
                 f"No seeded {state} crop option fits the {water_budget} mm water and ₹{financial_budget} "
                 "input constraints. Do not change crops without extension-officer review."
+            )
+
+        return AdvisoryDraft(
+            recommendation=(
+                recommendation
             ),
             explanation=(
                 "The deterministic demo could not find a feasible, state-specific crop record, so it is "
@@ -661,6 +794,7 @@ class AdvisoryService:
         verification = self._verify(farmer, request, intent, draft)
         verification_failed = any(check.status == "fail" for check in verification)
         needs_hitl = verification_failed or draft.confidence < self.settings.hitl_confidence_threshold
+        vision_needs_review = False
         if image_context:
             vision_meta = image_context.get("vision") if isinstance(image_context, dict) else None
             if isinstance(vision_meta, dict):
@@ -674,6 +808,7 @@ class AdvisoryService:
                     f"hash={str(vision_meta.get('input_hash', ''))[:12]}"
                 )
                 if vision_meta.get("needs_officer_review"):
+                    vision_needs_review = True
                     needs_hitl = True
             else:
                 image_detail = f"Attached image {request.image_id} analysed for crop symptoms."
@@ -701,15 +836,16 @@ class AdvisoryService:
             TraceEvent(
                 stage="planner", status="completed", detail="Built a deterministic demo task graph."
             ),
+            *_vision_trace_events(image_context, image_detail),
             TraceEvent(
-                stage="image_processor",
-                status="completed" if image_context else "skipped",
-                detail=image_detail,
-            ),
-            TraceEvent(
-                stage="memory_agent",
+                stage="evidence_retrieval",
                 status="completed",
                 detail="Retrieved twin, knowledge-base, and learning-memory context.",
+            ),
+            TraceEvent(
+                stage="specialist_reasoning",
+                status="completed",
+                detail="Produced a grounded specialist advisory from the retrieved evidence.",
             ),
             TraceEvent(
                 stage="reflection",
@@ -717,30 +853,22 @@ class AdvisoryService:
                 detail="Checked intent coverage, actionable wording, and units.",
             ),
             TraceEvent(
-                stage="verifier",
+                stage="safety_verification",
                 status="completed",
                 detail=(
                     "Executed deterministic water, budget, weather, scheme, and dose checks "
                     f"using safety rule set {self.settings.safety_rule_set_version}."
                 ),
             ),
+            TraceEvent(
+                stage="advisory_generated",
+                status="completed",
+                detail="Generated the farmer-facing advisory for delivery or officer review.",
+            ),
         ]
         agent_runs = self._demo_agent_runs(intent, draft.confidence, draft.evidence)
         if image_context:
-            agent_runs.insert(
-                3,
-                AgentRun(
-                    agent_id="vision_assist",
-                    name="Vision Assist",
-                    role="Lightweight crop-image symptom screening",
-                    status="completed",
-                    execution_mode="tool",
-                    duration_ms=0,
-                    summary=str(image_context.get("analysis_summary", "Processed uploaded image.")),
-                    input_sources=["farmer_image"],
-                    output_confidence=float(image_context.get("confidence", 0.7)),
-                ),
-            )
+            agent_runs[3:3] = _vision_agent_runs(image_context)
 
         reflection = ReflectionResult(
             status="pass",
@@ -755,7 +883,11 @@ class AdvisoryService:
             reason = (
                 "A hard safety check failed."
                 if verification_failed
-                else "Confidence is below the auto-delivery threshold."
+                else (
+                    "Vision evidence requires extension-officer review."
+                    if vision_needs_review
+                    else "Confidence is below the auto-delivery threshold."
+                )
             )
             trace.append(TraceEvent(stage="human_in_the_loop", status="queued", detail=reason))
             self.hitl.enqueue(
@@ -937,6 +1069,7 @@ class AdvisoryService:
                 content_type=content_type,
                 filename=filename,
                 backend=backend,
+                hitl_threshold=getattr(self.settings, "vision_hitl_threshold", 0.70),
             )
         except VisionPreprocessError as error:
             raise ValueError(str(error)) from error

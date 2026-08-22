@@ -75,8 +75,8 @@ class Settings(BaseSettings):
 
     hitl_confidence_threshold: float = 0.70
 
-    # Vision pipeline. `auto` uses ONNX when models/yolov8_npss/best.onnx exists,
-    # otherwise the pixel vegetation analyser. See Docs/VISION_PIPELINE.md.
+    # Vision pipeline. `auto` runs every installed disease/pest ONNX specialist
+    # and uses pixel vegetation analysis only when no ONNX model can run.
     vision_backend: Literal["auto", "pixel", "onnx"] = "auto"
     vision_hitl_threshold: float = 0.70
 
